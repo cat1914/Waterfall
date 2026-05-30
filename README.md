@@ -1,176 +1,287 @@
 # Waterfall Physics
 
-A NeoForge mod that integrates a real physics simulation engine into Minecraft, featuring underwater physics and sub-dimension support.
+A NeoForge library mod that provides physics simulation capabilities for Minecraft mods.
+
+**Waterfall Physics is an API library**, not designed for direct player use.
+Other mods can use this library to create interactive physics structures in the game.
+
+---
 
 ## Features
 
-### Physics Engine Integration
-- **Heavy C++ Physics Engine**: Utilizes the native `heavy` library for accurate physics calculations
-- **JNA Integration**: Native library bindings for seamless integration with Minecraft
-- **Real-time Simulation**: 60 FPS physics tick rate for smooth entity movement
+### API for Other Mods
+- Simple, intuitive Java API for creating physics structures
+- Programmatic block placement in physics entities
+- Full control over physics properties
+- Access to material-specific buoyancy calculations
 
-### Sub-Dimension Physics (Sable/Valkyrien Skies Inspired)
-- **Rigid Body System**: Groups of blocks become physics entities that can move and rotate
-- **Physics Container Block**: Core block that binds surrounding blocks into a rigid body
-- **Physics Binding Wand**: Tool to select and bind blocks to physics containers
-- **Physics Laboratory Dimension**: Isolated dimension for physics experiments
-- **Real-time Physics Tick**: Physics simulation runs in the physics dimension
+### Physics System
+- Material-specific buoyancy (wood/wool floats, stone/ores sink)
+- Perfect balance system (4 light blocks = 1 heavy block in force)
+- Realistic physics simulation
+- Sub-dimension physics architecture (inspired by Sable & Valkyrien Skies)
 
-### Material-specific Underwater Physics
-- **Light Block Buoyancy**: Wood, wool, bamboo, sponge, moss, etc. float upward in water
-- **Heavy Block Sinking**: Stone, ores, obsidian, netherite, etc. sink downward in water
-- **Perfect Buoyancy Balance**: 4 light blocks = 1 heavy block in terms of force
-- **Depth Detection**: Automatic water detection for physics application
-- **Realistic Force Calculation**: Light blocks have positive buoyancy, heavy blocks have negative buoyancy
+### Interactive Structures
+- Physics entities maintain real block interactions
+- Levers, buttons, doors, chests still work normally
+- Collision detection and player interaction
+- Full block state support (redstone, etc.)
 
-### Underwater Physics (Legacy)
-- **Buoyancy**: Objects float realistically based on their mass and volume
-- **Water Drag**: Resistance based on fluid density and velocity
-- **Depth Pressure**: Pressure increases with depth for realistic underwater behavior
-- **Lift Forces**: Objects experience upward lift in water
+---
 
-### Interactive Elements
-- **Physics Spawner Block**: Spawns physics-enabled entities
-- **Physics Wand**: Creative mode tool to spawn physics entities anywhere
-- **Physics Entity**: Custom entity with realistic physics behavior
-- **Water Simulation Block**: Advanced fluid dynamics block
-- **Physics Container**: Binds blocks into rigid physics bodies
-- **Physics Binding Wand**: Select and bind blocks to physics containers
-- **Physics Block Entity**: Movable physical structure with interactive elements
+## Quick Start for Modders
 
-## Full Block Component Interaction
+### 1. Add Dependency
 
-Physics Block Entities support interaction with all types of functional blocks:
+In your `build.gradle` or `gradle.properties`:
+```gradle
+dependencies {
+    implementation fg.deobf("com.yourname:waterfall:1.0.0")
+}
+```
 
-### Switches & Controls
-- **Levers**: Right-click to toggle (POWERED state changes)
-- **Buttons**: Right-click to activate (POWERED state)
-- **Pressure Plates**: Stepping on them triggers activation
-- **Buttons (Wood/Stone)**: Same functionality as levers
+### 2. Access the API
 
-### Doors & Gates
-- **Doors (Wood/Iron)**: Right-click to open/close (OPEN state)
-- **Trapdoors**: Right-click to open/close (OPEN state)
-- **Fence Gates**: Right-click to open/close (OPEN state)
+```java
+import com.waterfall.WaterfallPhysics;
+import com.waterfall.api.WaterfallPhysicsApi;
 
-### Storage & Functional Blocks
-- **Chests/Trapped Chests**: Right-click to open inventory
-- **Ender Chests**: Access ender storage from anywhere
-- **Barrels**: Functional barrel inventory
-- **Crafting Tables/Enchanting Tables**: Use normally
-- **Furnaces/Smokers/Blast Furnaces**: Full functionality
+// Check if Waterfall is loaded
+if (WaterfallPhysics.isLoaded()) {
+    // Get the API instance
+    WaterfallPhysicsApi api = WaterfallPhysics.getApi();
+}
+```
 
-### Redstone Components
-- **Redstone Lamps/Torches**: Toggle redstone states
-- **Repeaters/Comparators**: Functional redstone
-- **Dispensers/Droppers**: Can be activated
-- **Pistons/Sticky Pistons**: Extend/retract
+### 3. Create a Physics Structure
 
-### Interactive Entities
-- **Item Frames**: Place/remove items
-- **Signs/Editor Signs**: Edit text
-- **Flower Pots**: Plant/harvest flowers
-- **Beds**: Sleep/respawn
+```java
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec3;
+import java.util.HashMap;
+import java.util.Map;
 
-## Architecture (Inspired by Sable and Valkyrien Skies)
+// Create a block map
+Map<BlockPos, BlockState> blocks = new HashMap<>();
 
-### Core Concepts
-1. **Rigid Body**: A collection of blocks bound together as a single physics entity
-2. **Physics Container**: Block entity that manages rigid bodies
-3. **Physics Dimension**: Isolated dimension where physics simulation runs
-4. **Bindings**: Map between world coordinates and physics body local coordinates
-5. **Physics Block Entity**: Moveable entity with full block interaction support
+// Add your blocks
+blocks.put(new BlockPos(0, 0, 0), Blocks.OAK_PLANKS.defaultBlockState());
+blocks.put(new BlockPos(1, 0, 0), Blocks.OAK_PLANKS.defaultBlockState());
+blocks.put(new BlockPos(0, 1, 0), Blocks.STONE.defaultBlockState());
 
-### Data Flow
-1. Player places Physics Container Block
-2. Uses Physics Binding Wand to select area to bind
-3. Blocks are scanned and added to a RigidBody
-4. Player activates the container to start physics simulation
-5. Physics simulation runs in the physics dimension
-6. Shift+Right-click converts to Physics Block Entity
-7. Block positions are synchronized between dimensions
+// Create the physics structure
+Vec3 position = new Vec3(100, 64, 100);
+PhysicsBlockEntity structure = WaterfallPhysics.getApi()
+    .createPhysicsStructure(level, position, blocks);
+```
 
-### Key Classes
-- `RigidBody`: Represents a physics object made of blocks
-- `RigidBodyId`: Unique identifier for rigid bodies
-- `RigidBodyManager`: Manages all rigid bodies in the world
-- `PhysicsContainerBlockEntity`: Block entity that manages rigid body
-- `PhysicsContainerBlock`: Player-interactable block for physics containers
-- `PhysicsBindingWandItem`: Tool for selecting and binding blocks
-- `PhysicsWorldData`: Saved data for physics dimension state
-- `PhysicsBlockEntity`: Movable entity with full block interaction
-- `MaterialPhysics`: Material-specific property definitions
-- `PhysicsBlockRenderer`: Client-side rendering of physics blocks
+---
 
-## Usage
+## API Reference
 
-### Using Material-Specific Underwater Physics
+### `WaterfallPhysics.getApi()`
 
-1. **Place a Physics Container Block** (purple) in or near water
-2. **Use the Physics Binding Wand** to select a rectangular area with your blocks:
-   - Right-click the first corner
-   - Right-click the second corner
-3. **Right-click near the Physics Container** to bind the selected blocks
-4. **Shift+Right-click on Physics Container** to convert into physics block entity
-5. **Watch as light blocks (wood, wool) float and heavy blocks (stone, ore) sink!**
+Main API entry point.
 
-#### Buoyancy Rules
-- **Light Blocks**: Wood (all types), Wool (all colors), Bamboo, Sponge, Moss
-- **Heavy Blocks**: Stone (all types), Ores, Ore Blocks, Obsidian, Netherite
-- **Balance**: 4 light blocks = 1 heavy block in terms of force
-- **Neutral Blocks**: Other blocks have neutral buoyancy
+---
 
-#### Perfect Balance Examples
-- 4 wood blocks + 1 stone block = balanced (neutral buoyancy)
-- 8 wool blocks + 2 ore blocks = balanced
-- 16 wood blocks + 4 stone blocks = balanced
+### `createPhysicsStructure(Level, Vec3, Map<BlockPos, BlockState>)`
 
-### Interacting with Physics Blocks
+Creates a physics structure from a map of block positions and states.
 
-#### Basic Interactions
-- **Right-click physics entity** to toggle physics on/off
-- **Collide with physics entity** to push it around
-- **Physics entity blocks have real collision** - you can stand on them
-- **Underwater effects** automatically apply when submerged
+**Parameters:**
+- `level`: The world level
+- `position`: The center position for the structure
+- `blocks`: Map of local BlockPos to BlockState
 
-#### Block-Specific Interactions
-- **Right-click levers** on the structure - they toggle normally!
-- **Right-click doors/trapdoors** - they open/close properly
-- **Right-click chests** - access their inventories
-- **Stand on pressure plates** - triggers activation
-- **Press buttons** - works like in normal world
-- **Use crafting tables/furnaces** - full functionality maintained
+**Returns:**
+- `PhysicsBlockEntity`: The created physics entity
 
-### Creating a Physics Body
-1. Place a **Physics Container** block (purple)
-2. Right-click with **Physics Binding Wand** to select first corner
-3. Right-click again to select second corner (defines area)
-4. Right-click on or near Physics Container to bind blocks
-5. Right-click Physics Container (without Shift) to activate physics
-6. Shift+Right-click to convert to movable Physics Block Entity
+---
 
-### Physics Dimension
-- Use **Physics Portal** block to access the Physics Laboratory dimension
-- Physics simulation runs in dedicated dimension for performance
-- Dimension has its own physics world data
-- Gravity in dimension can be configured
+### `createFromWorldArea(Level, Vec3, BlockPos, BlockPos, boolean)`
 
-### Configuration
-- Edit `config/waterfall-physics.toml` to configure:
-  - Air/Underwater gravity values
-  - Material buoyancy multipliers
-  - Heavy/light block weight ratios
-  - Physics tick rate
-  - Dimension settings
-  - Enable/disable specific physics features
+Creates a physics structure from an existing area of blocks.
+
+**Parameters:**
+- `level`: The world level
+- `center`: The center position
+- `min`: Minimum corner of area
+- `max`: Maximum corner of area
+- `consumeBlocks`: If true, removes blocks from the world
+
+---
+
+### `activatePhysics(PhysicsBlockEntity)` / `deactivatePhysics(PhysicsBlockEntity)`
+
+Enables or disables physics simulation for an entity.
+
+---
+
+### `applyImpulse(PhysicsBlockEntity, Vec3)`
+
+Applies an impulse force to a physics entity.
+
+---
+
+### `setVelocity(PhysicsBlockEntity, Vec3)`
+
+Sets the velocity of a physics entity.
+
+---
+
+### `destroyPhysicsStructure(PhysicsBlockEntity, boolean)`
+
+Destroys a physics structure, optionally restoring blocks to the world.
+
+---
+
+### `getLightBlockCount(PhysicsBlockEntity)` / `getHeavyBlockCount(PhysicsBlockEntity)`
+
+Gets the count of light or heavy blocks in a physics entity.
+
+---
+
+### `isUnderwater(PhysicsBlockEntity)`
+
+Checks if a physics entity is currently underwater.
+
+---
+
+### `calculateNetBuoyancy(PhysicsBlockEntity)`
+
+Calculates the net buoyancy of an entity (positive = floats, negative = sinks).
+
+---
+
+## Material System
+
+### Light Blocks (Float)
+- Wood (all types)
+- Wool (all colors)
+- Bamboo
+- Sponge
+- Moss
+- ...and more
+
+### Heavy Blocks (Sink)
+- Stone (all types)
+- Ores (iron, gold, diamond, etc.)
+- Obsidian
+- Netherite
+- ...and more
+
+### Buoyancy Formula
+```
+Net Force = (Light Block Count) - (Heavy Block Count * 0.25)
+```
+- Positive = Floats
+- Negative = Sinks
+- Zero = Neutral
+
+---
+
+## Example Code
+
+### Example 1: Simple Wood Platform
+
+```java
+Map<BlockPos, BlockState> blocks = new HashMap<>();
+
+// 3x3 wood platform
+for (int x = -1; x <= 1; x++) {
+    for (int z = -1; z <= 1; z++) {
+        blocks.put(new BlockPos(x, 0, z), Blocks.OAK_PLANKS.defaultBlockState());
+    }
+}
+
+// Create it!
+Vec3 pos = new Vec3(100, 64, 100);
+PhysicsBlockEntity structure = WaterfallPhysics.getApi()
+    .createPhysicsStructure(level, pos, blocks);
+
+// Push it up a bit
+WaterfallPhysics.getApi().applyImpulse(structure, new Vec3(0, 1, 0));
+```
+
+### Example 2: Balanced Buoyancy Structure
+
+```java
+Map<BlockPos, BlockState> blocks = new HashMap<>();
+
+// 4 light blocks
+blocks.put(new BlockPos(0, 0, 0), Blocks.OAK_PLANKS.defaultBlockState());
+blocks.put(new BlockPos(1, 0, 0), Blocks.OAK_PLANKS.defaultBlockState());
+blocks.put(new BlockPos(0, 0, 1), Blocks.OAK_PLANKS.defaultBlockState());
+blocks.put(new BlockPos(1, 0, 1), Blocks.OAK_PLANKS.defaultBlockState());
+
+// 1 heavy block (balances perfectly)
+blocks.put(new BlockPos(0, 1, 0), Blocks.STONE.defaultBlockState());
+
+// Create - should be neutrally buoyant!
+Vec3 pos = new Vec3(100, 64, 100);
+WaterfallPhysics.getApi().createPhysicsStructure(level, pos, blocks);
+```
+
+### Example 3: Structure with Interactive Blocks
+
+```java
+Map<BlockPos, BlockState> blocks = new HashMap<>();
+
+// Base
+for (int x = -2; x <= 2; x++) {
+    for (int z = -2; z <= 2; z++) {
+        blocks.put(new BlockPos(x, 0, z), Blocks.OAK_PLANKS.defaultBlockState());
+    }
+}
+
+// Add a lever (still works!)
+blocks.put(new BlockPos(0, 1, 0), Blocks.LEVER.defaultBlockState());
+
+// Add a door
+blocks.put(new BlockPos(2, 1, 0), Blocks.OAK_DOOR.defaultBlockState());
+blocks.put(new BlockPos(2, 2, 0), Blocks.OAK_DOOR.defaultBlockState());
+
+// Create and activate
+Vec3 pos = new Vec3(100, 64, 100);
+PhysicsBlockEntity structure = WaterfallPhysics.getApi()
+    .createPhysicsStructure(level, pos, blocks);
+
+// Physics will handle it!
+```
+
+---
+
+## Architecture Overview
+
+### Physics Entity
+- `PhysicsBlockEntity` represents a physics structure
+- Contains multiple blocks arranged in a coordinate system
+- Maintains block states and updates them
+- Handles player interactions on blocks
+
+### Rigid Body
+- Physics simulation data structure
+- Manages forces (gravity, buoyancy, drag)
+- Updates position and velocity
+
+### Material Physics
+- Classifies blocks into light/heavy/neutral
+- Calculates mass and buoyancy
+- Underwater detection
+
+---
 
 ## License
 
-This mod is available under the MIT License.
+MIT License - feel free to use this library in your mods!
+
+---
 
 ## Credits
 
-- **Sable & Valkyrien Skies**: Architecture inspiration for sub-dimension physics
-- **Heavy Physics Engine**: Native physics simulation library
-- **NeoForge**: Modding framework
-- **Minecraft Community**: Support and inspiration
+- Inspired by Sable and Valkyrien Skies
+- Heavy Physics Engine integration
+- NeoForge modding framework
