@@ -37,6 +37,14 @@ public class PhysicsBody implements AutoCloseable {
         HeavyLibrary.INSTANCE.heavy_Vector3_set(nativeBody, x, y, z);
     }
     
+    public void setVelocity(Vector3 velocity) {
+        // Stub: implement if heavy library has this function
+    }
+    
+    public void setMass(float mass) {
+        // Stub: implement if heavy library has this function
+    }
+    
     public void applyForce(Vector3 force) {
         HeavyLibrary.INSTANCE.heavy_PhysicsBody_applyForce(nativeBody, force.getNativeVector());
     }
