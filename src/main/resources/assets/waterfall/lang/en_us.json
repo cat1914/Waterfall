@@ -14,6 +14,7 @@
   "item.waterfall.physics_binding_wand": "Physics Binding Wand",
   
   "entity.waterfall.physics_entity": "Physics Entity",
+  "entity.waterfall.physics_block": "Physics Block Entity",
   
   "dimension.waterfall.physics_lab": "Physics Laboratory",
   

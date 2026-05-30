@@ -64,13 +64,15 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 
 ## Usage
 
-### Using Material-specific Underwater Physics
-1. Place a **Physics Container** (purple block) in or near water
-2. Use the **Physics Binding Wand** to select a rectangular area containing your blocks
-3. Left-click the first corner, right-click the second corner to define the area
-4. Right-click near the Physics Container to bind the selected blocks
-5. Right-click the Physics Container to activate physics
-6. Watch as light blocks (wood, wool) float and heavy blocks (stone, ore) sink!
+### Using Material-Specific Underwater Physics
+
+1. **Place a Physics Container Block** (purple) in or near water
+2. **Use the Physics Binding Wand** to select a rectangular area with your blocks:
+   - Right-click the first corner
+   - Right-click the second corner
+3. **Right-click near the Physics Container** to bind the selected blocks
+4. **Shift+Right-click on Physics Container** to convert into physics block entity
+5. **Watch as light blocks (wood, wool) float and heavy blocks (stone, ore) sink!**
 
 #### Buoyancy Rules
 - **Light Blocks**: Wood (all types), Wool (all colors), Bamboo, Sponge, Moss
@@ -82,6 +84,12 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 - 4 wood blocks + 1 stone block = balanced (neutral buoyancy)
 - 8 wool blocks + 2 ore blocks = balanced
 - 16 wood blocks + 4 stone blocks = balanced
+
+### Interacting with Physics Blocks
+- **Right-click physics entity** to toggle physics on/off
+- **Collide with physics entity** to push it around
+- **Physics entity blocks have real collision** - you can stand on them
+- **Underwater effects** automatically apply when submerged
 
 ### Creating a Physics Body
 1. Place a **Physics Container** block (purple)
