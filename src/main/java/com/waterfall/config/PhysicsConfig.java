@@ -4,7 +4,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.ConfigFileLoadEvent;
-import net.neoforged.neoforge.fml.loading.FMLPaths;
+import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -23,6 +23,7 @@ public class PhysicsConfig {
     public static float BUOYANCY_FORCE = 2.0f;
     public static int MAX_ENTITIES = 1000;
     public static boolean ENABLE_UNDERWATER_PHYSICS = true;
+    public static boolean ENABLE_PHYSICS_DIMENSION = true;
     public static float PHYSICS_TICK_RATE = 0.016f;
     
     // 水下物理精确配置
