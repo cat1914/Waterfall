@@ -4,12 +4,16 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.level.block.state.BlockState;
+import com.waterfall.physics.MaterialPhysics;
+import com.waterfall.physics.Vector3;
+import com.waterfall.config.PhysicsConfig;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * 表示方块结构的刚体，包含一组方块及其相对位置
+ * 具有精确的水下物理模拟：轻质方块有升力，重质方块下沉
  */
 public class RigidBody implements AutoCloseable {
     private final RigidBodyId id;
@@ -19,6 +23,10 @@ public class RigidBody implements AutoCloseable {
     private float inertia;
     private boolean isStatic;
     private boolean isActive;
+    private boolean isUnderwater;    // 是否在水下
+    private float totalBuoyancy;    // 总浮力系数
+    private int lightBlockCount;    // 轻质方块数量
+    private int heavyBlockCount;    // 重质方块数量
 
     public RigidBody(RigidBodyId id) {
         this.id = id;
@@ -28,6 +36,10 @@ public class RigidBody implements AutoCloseable {
         this.inertia = 1.0f;
         this.isStatic = false;
         this.isActive = true;
+        this.isUnderwater = false;
+        this.totalBuoyancy = 0.0f;
+        this.lightBlockCount = 0;
+        this.heavyBlockCount = 0;
     }
 
     public RigidBodyId getId() {
@@ -48,9 +60,36 @@ public class RigidBody implements AutoCloseable {
         recalculateMassAndInertia();
     }
 
+    /**
+     * 重新计算质量、惯性和浮力
+     * 基于材质分类系统
+     */
     private void recalculateMassAndInertia() {
-        float blockMass = 1.0f; // 假设每个方块质量为1
-        mass = blocks.size() * blockMass;
+        mass = 0.0f;
+        totalBuoyancy = 0.0f;
+        lightBlockCount = 0;
+        heavyBlockCount = 0;
+        
+        // 遍历所有方块计算总质量和总浮力
+        for (BlockState state : blocks.values()) {
+            float blockMassFactor = MaterialPhysics.getMassFactor(state);
+            float blockBuoyancy = MaterialPhysics.getBuoyancyFactor(state);
+            
+            mass += blockMassFactor;
+            totalBuoyancy += blockBuoyancy;
+            
+            // 计数
+            if (MaterialPhysics.isLightMaterial(state)) {
+                lightBlockCount++;
+            } else if (MaterialPhysics.isHeavyMaterial(state)) {
+                heavyBlockCount++;
+            }
+        }
+        
+        // 避免质量为0
+        if (mass <= 0) {
+            mass = 1.0f;
+        }
         
         // 简化的转动惯量计算 (假设是立方体)
         if (blocks.size() > 0) {
@@ -116,6 +155,80 @@ public class RigidBody implements AutoCloseable {
 
     public boolean isActive() {
         return isActive;
+    }
+    
+    /**
+     * 设置是否在水下
+     */
+    public void setUnderwater(boolean underwater) {
+        this.isUnderwater = underwater;
+    }
+    
+    public boolean isUnderwater() {
+        return isUnderwater;
+    }
+    
+    /**
+     * 获取总浮力系数
+     */
+    public float getTotalBuoyancy() {
+        return totalBuoyancy;
+    }
+    
+    /**
+     * 获取轻质方块数量
+     */
+    public int getLightBlockCount() {
+        return lightBlockCount;
+    }
+    
+    /**
+     * 获取重质方块数量
+     */
+    public int getHeavyBlockCount() {
+        return heavyBlockCount;
+    }
+    
+    /**
+     * 检查是否浮力平衡
+     * 规则：四个轻质方块的升力 = 一个重质方块的重力
+     */
+    public boolean isBuoyancyBalanced() {
+        return lightBlockCount == 4 * heavyBlockCount;
+    }
+    
+    /**
+     * 计算净浮力（仅在水下有效）
+     * 返回正值表示上浮，负值表示下沉
+     */
+    public float calculateNetBuoyancy() {
+        if (!isUnderwater || !PhysicsConfig.ENABLE_MATERIAL_PHYSICS) {
+            return 0.0f; // 不在水下或未启用材质物理，无浮力
+        }
+        
+        // 计算净浮力：轻质升力 - 重质重力
+        // 规则：4个轻质升力 = 1个重质重力
+        float netBuoyancy = (lightBlockCount * PhysicsConfig.LIGHT_BLOCK_BUOYANCY) - 
+                          (heavyBlockCount * PhysicsConfig.HEAVY_BLOCK_WEIGHT * 0.25f);
+        
+        return netBuoyancy;
+    }
+    
+    /**
+     * 应用水下物理力
+     * 只在isUnderwater为true时有效
+     */
+    public void applyUnderwaterForces() {
+        if (!isUnderwater || !PhysicsConfig.ENABLE_MATERIAL_PHYSICS) {
+            return;
+        }
+        
+        float netBuoyancy = calculateNetBuoyancy();
+        float forceMagnitude = netBuoyancy * PhysicsConfig.BUOYANCY_FORCE_MULTIPLIER;
+        
+        // 应用浮力：正值向上，负值向下
+        Vector3 buoyancyForce = new Vector3(0, forceMagnitude, 0);
+        physicsBody.applyForce(buoyancyForce);
     }
 
     public CompoundTag save() {

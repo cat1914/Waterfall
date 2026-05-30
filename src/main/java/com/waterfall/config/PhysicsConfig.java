@@ -26,6 +26,12 @@ public class PhysicsConfig {
     public static boolean ENABLE_PHYSICS_DIMENSION = true;
     public static float PHYSICS_TICK_RATE = 0.016f;
     
+    // 水下物理精确配置
+    public static float LIGHT_BLOCK_BUOYANCY = 1.0f;  // 轻质方块的浮力
+    public static float HEAVY_BLOCK_WEIGHT = 4.0f;    // 重质方块的重量（相对于轻质）
+    public static float BUOYANCY_FORCE_MULTIPLIER = 2.0f; // 浮力力量倍数
+    public static boolean ENABLE_MATERIAL_PHYSICS = true;  // 启用材质区分物理
+    
     private static final String CONFIG_FILE_NAME = "waterfall-physics.toml";
     
     public static void register() {
@@ -88,6 +94,22 @@ public class PhysicsConfig {
             
             # Physics tick rate (seconds)
             physics_tick_rate = 0.016
+            
+            # ==============
+            # Material-specific Underwater Physics
+            # ==============
+            
+            # Enable material-specific physics (light blocks float, heavy blocks sink)
+            enable_material_physics = true
+            
+            # Light block buoyancy (wood, wool, etc.)
+            light_block_buoyancy = 1.0
+            
+            # Heavy block weight relative to light blocks (4 light = 1 heavy)
+            heavy_block_weight = 4.0
+            
+            # Overall buoyancy force multiplier
+            buoyancy_force_multiplier = 2.0
             """;
         
         try {
@@ -122,6 +144,10 @@ public class PhysicsConfig {
                     case "enable_underwater_physics" -> ENABLE_UNDERWATER_PHYSICS = Boolean.parseBoolean(value);
                     case "enable_physics_dimension" -> ENABLE_PHYSICS_DIMENSION = Boolean.parseBoolean(value);
                     case "physics_tick_rate" -> PHYSICS_TICK_RATE = Float.parseFloat(value);
+                    case "enable_material_physics" -> ENABLE_MATERIAL_PHYSICS = Boolean.parseBoolean(value);
+                    case "light_block_buoyancy" -> LIGHT_BLOCK_BUOYANCY = Float.parseFloat(value);
+                    case "heavy_block_weight" -> HEAVY_BLOCK_WEIGHT = Float.parseFloat(value);
+                    case "buoyancy_force_multiplier" -> BUOYANCY_FORCE_MULTIPLIER = Float.parseFloat(value);
                 }
             } catch (NumberFormatException e) {
                 LOGGER.warn("Invalid value for {}: {}", key, value);

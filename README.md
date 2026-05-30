@@ -16,7 +16,14 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 - **Physics Laboratory Dimension**: Isolated dimension for physics experiments
 - **Real-time Physics Tick**: Physics simulation runs in the physics dimension
 
-### Underwater Physics
+### Material-specific Underwater Physics
+- **Light Block Buoyancy**: Wood, wool, bamboo, sponge, moss, etc. float upward in water
+- **Heavy Block Sinking**: Stone, ores, obsidian, netherite, etc. sink downward in water
+- **Perfect Buoyancy Balance**: 4 light blocks = 1 heavy block in terms of force
+- **Depth Detection**: Automatic water detection for physics application
+- **Realistic Force Calculation**: Light blocks have positive buoyancy, heavy blocks have negative buoyancy
+
+### Underwater Physics (Legacy)
 - **Buoyancy**: Objects float realistically based on their mass and volume
 - **Water Drag**: Resistance based on fluid density and velocity
 - **Depth Pressure**: Pressure increases with depth for realistic underwater behavior
@@ -56,6 +63,25 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 - `PhysicsWorldData`: Saved data for physics dimension state
 
 ## Usage
+
+### Using Material-specific Underwater Physics
+1. Place a **Physics Container** (purple block) in or near water
+2. Use the **Physics Binding Wand** to select a rectangular area containing your blocks
+3. Left-click the first corner, right-click the second corner to define the area
+4. Right-click near the Physics Container to bind the selected blocks
+5. Right-click the Physics Container to activate physics
+6. Watch as light blocks (wood, wool) float and heavy blocks (stone, ore) sink!
+
+#### Buoyancy Rules
+- **Light Blocks**: Wood (all types), Wool (all colors), Bamboo, Sponge, Moss
+- **Heavy Blocks**: Stone (all types), Ores, Ore Blocks, Obsidian, Netherite
+- **Balance**: 4 light blocks = 1 heavy block in terms of force
+- **Neutral Blocks**: Other blocks have neutral buoyancy
+
+#### Perfect Balance Examples
+- 4 wood blocks + 1 stone block = balanced (neutral buoyancy)
+- 8 wool blocks + 2 ore blocks = balanced
+- 16 wood blocks + 4 stone blocks = balanced
 
 ### Creating a Physics Body
 1. Place a **Physics Container** block (purple)

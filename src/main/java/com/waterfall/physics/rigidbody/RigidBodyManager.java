@@ -4,14 +4,19 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
+import com.waterfall.physics.Vector3;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 刚体管理器，负责管理子维度中的所有刚体
+ * 具有精确的水下物理检测和浮力应用功能
  */
 public class RigidBodyManager implements AutoCloseable {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -83,9 +88,73 @@ public class RigidBodyManager implements AutoCloseable {
         for (RigidBodyId id : ids) {
             RigidBody body = rigidBodies.get(id);
             if (body != null && body.isActive() && !body.isStatic()) {
+                // 检测是否在水下
+                boolean wasUnderwater = body.isUnderwater();
+                boolean isNowUnderwater = checkIfUnderwater(body, dimension);
+                body.setUnderwater(isNowUnderwater);
+                
+                // 如果在水下，应用浮力
+                if (isNowUnderwater) {
+                    body.applyUnderwaterForces();
+                    
+                    // 第一次进入水下时记录日志
+                    if (!wasUnderwater) {
+                        LOGGER.debug("Rigid body {} entered water - Light: {}, Heavy: {}, Net buoyancy: {}", 
+                            id, body.getLightBlockCount(), body.getHeavyBlockCount(), 
+                            body.calculateNetBuoyancy());
+                    }
+                }
+                
+                // 更新物理
                 body.getPhysicsBody().update(0.016f);
             }
         }
+    }
+    
+    /**
+     * 检查刚体是否在水下
+     * 检查刚体的中心位置和几个关键点
+     */
+    private boolean checkIfUnderwater(RigidBody body, ServerLevel dimension) {
+        // 获取物理主体的位置
+        Vector3 position = body.getPhysicsBody().getPosition();
+        BlockPos centerPos = new BlockPos(
+            (int) Math.floor(position.getX()), 
+            (int) Math.floor(position.getY()), 
+            (int) Math.floor(position.getZ())
+        );
+        
+        // 检查中心位置
+        if (isWaterAt(dimension, centerPos)) {
+            return true;
+        }
+        
+        // 检查几个关键点（边界）
+        BlockPos[] checkPositions = new BlockPos[] {
+            centerPos.above(),
+            centerPos.below(),
+            centerPos.north(),
+            centerPos.south(),
+            centerPos.east(),
+            centerPos.west()
+        };
+        
+        // 只要有一个关键点在水下就认为在水下
+        for (BlockPos pos : checkPositions) {
+            if (isWaterAt(dimension, pos)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 检查指定位置是否是水
+     */
+    private boolean isWaterAt(ServerLevel level, BlockPos pos) {
+        FluidState fluidState = level.getFluidState(pos);
+        return fluidState.is(Fluids.WATER) || fluidState.is(Fluids.FLOWING_WATER);
     }
     
     public void applyForce(RigidBodyId id, Vector3 force, BlockPos localPosition) {
