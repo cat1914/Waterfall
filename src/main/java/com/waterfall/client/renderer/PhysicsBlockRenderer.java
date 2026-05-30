@@ -6,6 +6,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.state.BlockState;
@@ -111,6 +112,9 @@ public class PhysicsBlockRenderer extends EntityRenderer<PhysicsBlockEntity> {
      */
     @Override
     protected float getShadowRadius(PhysicsBlockEntity entity) {
-        return Math.min(super.getShadowRadius(entity), Math.max(entity.getBoundingBox().getXsize(), entity.getBoundingBox().getZsize()));
+        // 修复类型转换问题
+        float baseShadow = super.getShadowRadius(entity);
+        float entitySize = (float)Math.max(entity.getBoundingBox().getXsize(), entity.getBoundingBox().getZsize());
+        return Math.min(baseShadow, entitySize);
     }
 }

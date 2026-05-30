@@ -2,8 +2,10 @@ package com.waterfall.dimension;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryLookupCodec;
 import net.minecraft.server.level.WorldGenSummary;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.biome.Biome;
@@ -90,5 +92,10 @@ public class PhysicsChunkGenerator extends ChunkGenerator {
     @Override
     public SurfaceRules.RuleSource surfaceRule(RandomState randomState) {
         return SurfaceRules.noiseBasedSource(null, null, null);
+    }
+    
+    @Override
+    public void addDebugScreenInfo(List<Component> info, RandomState randomState, BlockPos pos) {
+        // Empty implementation for physics dimension
     }
 }

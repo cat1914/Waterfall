@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
 import com.waterfall.WaterfallMod;
 import com.waterfall.physics.rigidbody.RigidBodyManager;
 import com.waterfall.physics.rigidbody.RigidBody;
@@ -45,7 +46,7 @@ public class PhysicsWorldData extends SavedData {
     }
     
     @Override
-    public CompoundTag save(CompoundTag tag) {
+    public CompoundTag save(CompoundTag tag, net.minecraft.world.level.saveddata.SaveData.Factory factory) {
         tag.putBoolean("isInitialized", isInitialized);
         tag.putLong("lastTick", lastTick);
         return tag;
