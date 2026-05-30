@@ -1,0 +1,22 @@
+{
+  "itemGroup.waterfall": "Waterfall Physics",
+  
+  "block.waterfall.physics_spawner": "Physics Spawner",
+  "block.waterfall.physics_portal": "Physics Portal",
+  "block.waterfall.water_simulation_block": "Water Simulation Block",
+  
+  "item.waterfall.physics_spawner": "Physics Spawner",
+  "item.waterfall.physics_portal": "Physics Portal",
+  "item.waterfall.water_simulation_block": "Water Simulation Block",
+  "item.waterfall.physics_wand": "Physics Wand",
+  
+  "entity.waterfall.physics_entity": "Physics Entity",
+  
+  "dimension.waterfall.physics_lab": "Physics Laboratory",
+  
+  "waterfall.config.title": "Waterfall Physics Configuration",
+  "waterfall.config.gravity": "Gravity",
+  "waterfall.config.waterGravity": "Water Gravity",
+  "waterfall.config.buoyancyForce": "Buoyancy Force",
+  "waterfall.config.waterDrag": "Water Drag"
+}
