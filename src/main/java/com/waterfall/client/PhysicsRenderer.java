@@ -4,9 +4,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.world.phys.Vec3;
 import com.waterfall.physics.rigidbody.RigidBody;
+import com.waterfall.physics.rigidbody.RigidBodyId;
 import com.waterfall.physics.rigidbody.RigidBodyManager;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 
 /**
  * 物理渲染器 - 用于渲染物理化的方块

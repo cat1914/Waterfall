@@ -4,10 +4,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkDirection;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
+import net.neoforged.neoforge.network.NetworkRegistry;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.simple.SimpleChannel;
 import com.waterfall.WaterfallMod;
 
 public class PhysicsPacketHandler {
@@ -30,15 +29,15 @@ public class PhysicsPacketHandler {
     }
     
     public static <MSG> void sendToPlayer(MSG message, ServerPlayer player) {
-        INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), message);
+        INSTANCE.send(PacketDistributor.PLAYER.with(player), message);
     }
     
     public static <MSG> void sendToAll(MSG message) {
-        INSTANCE.send(PacketDistributor.ALL.with(() -> PacketDistributor.TargetPoint.ALL), message);
+        INSTANCE.send(PacketDistributor.ALL, message);
     }
     
     public static <MSG> void sendToTracking(MSG message, Entity entity) {
-        INSTANCE.send(PacketDistributor.TRACKING_ENTITY.with(() -> entity), message);
+        INSTANCE.send(PacketDistributor.TRACKING_ENTITY.with(entity), message);
     }
     
     public static int nextPacketId() {

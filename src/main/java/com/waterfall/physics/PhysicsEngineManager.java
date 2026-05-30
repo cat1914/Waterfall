@@ -122,11 +122,11 @@ public class PhysicsEngineManager {
         
         FluidState fluidState = level.getFluidState(new BlockPos((int) position.x, (int) position.y, (int) position.z));
         if (!fluidState.isEmpty()) {
-            float height = fluidState.getHeight();
+            float height = (float) fluidState.getHeight();
             if (position.y < height) {
                 float drag = AIR_DRAG;
                 Vec3 velocity = entityVelocityMap.getOrDefault(UUID.randomUUID(), Vec3.ZERO);
-                force.addThrustDown(drag * velocity.length());
+                force.addThrustDown((float)(drag * velocity.length()));
             }
         }
         
@@ -143,7 +143,7 @@ public class PhysicsEngineManager {
         force.setLift(0, BUOYANCY_FORCE * submergedRatio, 0);
         
         Vec3 velocity = entityVelocityMap.getOrDefault(UUID.randomUUID(), Vec3.ZERO);
-        float drag = WATER_DRAG * velocity.length();
+        float drag = (float)(WATER_DRAG * velocity.length());
         force.addThrustDown(drag);
         
         body.applyForce(new Vector3(force.getNativeForce()));

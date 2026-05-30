@@ -2,37 +2,28 @@ package com.waterfall.dimension;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.RegistryLookupCodec;
 import net.minecraft.server.level.WorldGenSummary;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.StructureManager;
-import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
-import net.minecraft.world.level.gen.GenerationStep;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.gen.StructureSettings;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.blender.Blender;
-import net.minecraft.world.level.levelgen.carver.CarvingContext;
-import net.minecraft.world.level.levelgen.feature.FeaturePlacementContext;
-import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraft.world.level.levelgen.surfacerules.SurfaceRules;
-import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.noise.NoiseRouter;
-import net.minecraft.world.level.chunk.ChunkAccess;
-import net.minecraft.world.level.chunk.ChunkStatus;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 public class PhysicsChunkGenerator extends ChunkGenerator {
-    public static final Codec<PhysicsChunkGenerator> CODEC = Codec.unit(PhysicsChunkGenerator::new);
+    public static final com.mojang.serialization.Codec<PhysicsChunkGenerator> CODEC = 
+        com.mojang.serialization.Codec.unit(PhysicsChunkGenerator::new);
     
     private static final int SEA_LEVEL = 32;
     
@@ -44,17 +35,26 @@ public class PhysicsChunkGenerator extends ChunkGenerator {
         super(biomeSource);
     }
     
+    public PhysicsChunkGenerator() {
+        // 简化的默认构造函数
+        super(net.minecraft.world.level.biome.FixedBiomeSource.create(
+            net.minecraft.world.level.biome.Biomes.PLAINS
+        ));
+    }
+    
     @Override
-    protected Codec<? extends ChunkGenerator> codec() {
+    protected com.mojang.serialization.Codec<? extends ChunkGenerator> codec() {
         return CODEC;
     }
     
     @Override
     public void buildSurface(WorldGenAccess world, StructureManager structureManager, RandomState randomState, LevelChunk chunk) {
+        // 空实现 - 物理维度不需要生成地形
     }
     
     @Override
     public void applyBiomeDecoration(WorldGenAccess world, ChunkAccess chunk, StructureManager structureManager) {
+        // 空实现
     }
     
     @Override
@@ -95,7 +95,10 @@ public class PhysicsChunkGenerator extends ChunkGenerator {
     }
     
     @Override
-    public void addDebugScreenInfo(List<Component> info, RandomState randomState, BlockPos pos) {
-        // Empty implementation for physics dimension
+    public void addDebugScreenInfo(List<String> info, RandomState randomState, BlockPos pos) {
+        // 物理维度的调试信息
+        info.add("Physics Dimension");
+        info.add("Light blocks: 0");
+        info.add("Heavy blocks: 0");
     }
 }
