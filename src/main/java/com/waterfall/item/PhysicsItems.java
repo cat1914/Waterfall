@@ -27,8 +27,16 @@ public class PhysicsItems {
         new BlockItem(PhysicsBlocks.WATER_SIMULATION_BLOCK.get(), new Item.Properties())
     );
     
+    public static final DeferredHolder<Item, Item> PHYSICS_CONTAINER = ITEMS.register("physics_container", () ->
+        new BlockItem(PhysicsBlocks.PHYSICS_CONTAINER_BLOCK.get(), new Item.Properties().rarity(Rarity.EPIC))
+    );
+    
     public static final DeferredHolder<Item, Item> PHYSICS_WAND = ITEMS.register("physics_wand", () ->
         new PhysicsWandItem(new Item.Properties().stacksTo(1).durability(100).rarity(Rarity.EPIC))
+    );
+    
+    public static final DeferredHolder<Item, Item> PHYSICS_BINDING_WAND = ITEMS.register("physics_binding_wand", () ->
+        new PhysicsBindingWandItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC))
     );
     
     public static void register(IEventBus eventBus) {

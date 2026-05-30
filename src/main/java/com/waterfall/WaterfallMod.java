@@ -15,9 +15,13 @@ import com.mojang.logging.LogUtils;
 import com.waterfall.config.PhysicsConfig;
 import com.waterfall.dimension.PhysicsDimension;
 import com.waterfall.dimension.PhysicsDimensionType;
+import com.waterfall.dimension.PhysicsWorldData;
 import com.waterfall.entity.PhysicsEntityType;
+import com.waterfall.block.PhysicsBlocks;
+import com.waterfall.block.PhysicsBlockEntities;
 import com.waterfall.network.PhysicsPacketHandler;
 import com.waterfall.physics.PhysicsEngineManager;
+import com.waterfall.physics.rigidbody.RigidBodyManager;
 
 import java.util.Optional;
 
@@ -57,7 +61,8 @@ public class WaterfallMod {
         PhysicsConfig.register();
         PhysicsDimensionType.register(modEventBus);
         PhysicsEntityType.register(modEventBus);
-        com.waterfall.block.PhysicsBlocks.register(modEventBus);
+        PhysicsBlocks.register(modEventBus);
+        PhysicsBlockEntities.register(modEventBus);
         com.waterfall.item.PhysicsItems.register(modEventBus);
         
         PhysicsPacketHandler.register();
@@ -82,8 +87,15 @@ public class WaterfallMod {
     
     private void onServerTick(final ServerTickEvent.Post event) {
         event.getServer().getAllLevels().forEach(level -> {
+            // 在物理维度中运行物理模拟
             if (level.dimension().location().getNamespace().equals(MODID)) {
                 PhysicsEngineManager.getInstance().tick(level);
+                RigidBodyManager.getInstance().tick(level);
+                
+                if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    PhysicsWorldData data = PhysicsWorldData.get(serverLevel);
+                    data.tick(serverLevel);
+                }
             }
         });
     }
