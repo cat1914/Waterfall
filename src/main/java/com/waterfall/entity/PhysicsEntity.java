@@ -19,6 +19,10 @@ import com.waterfall.physics.PhysicsEngineManager;
 import javax.annotation.Nullable;
 import java.util.UUID;
 
+/**
+ * Deprecated - Use PhysicsBlockEntity for block-based physics structures
+ */
+@Deprecated
 public class PhysicsEntity extends WaterAnimal {
     private static final EntityDataAccessor<Float> DATA_MASS = SynchedEntityData.defineId(PhysicsEntity.class, EntityDataSerializers.FLOAT);
     
@@ -125,10 +129,10 @@ public class PhysicsEntity extends WaterAnimal {
     
     @Override
     public boolean isInWater() {
-        if (this.is Swimming) {
+        if (this.isSwimming()) {
             return true;
         } else {
-            BlockPos blockpos = this.getBlockPosBelowThatIsThisOrThis();
+            BlockPos blockpos = this.blockPosition();
             FluidState fluidstate = this.level().getFluidState(blockpos);
             return fluidstate.is(Fluids.WATER) || fluidstate.is(Fluids.FLOWING_WATER);
         }
