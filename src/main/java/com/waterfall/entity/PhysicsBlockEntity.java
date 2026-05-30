@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -18,9 +19,11 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import com.waterfall.WaterfallMod;
 import com.waterfall.physics.MaterialPhysics;
@@ -40,6 +43,7 @@ import java.util.UUID;
 /**
  * 物理方块实体：代表一组绑定在一起的物理化方块
  * 包含碰撞体积、渲染、玩家交互功能
+ * 支持方块的完整交互（拉杆、箱子、门等）
  */
 public class PhysicsBlockEntity extends Entity {
     public static final EntityDataAccessor<Boolean> DATA_IS_PHYSICS_ACTIVE = 
@@ -144,6 +148,44 @@ public class PhysicsBlockEntity extends Entity {
         if (movedAABB.getZsize() < 0.1) movedAABB = movedAABB.inflate(0, 0, 0.1);
         
         this.setBoundingBox(movedAABB);
+    }
+    
+    /**
+     * 查找玩家点击的具体方块
+     */
+    public BlockPos findClickedBlockPos(Player player, float partialTicks) {
+        Vec3 eyePosition = player.getEyePosition(partialTicks);
+        Vec3 lookVector = player.getViewVector(partialTicks);
+        double distance = player.blockInteractionRange();
+        Vec3 endPosition = eyePosition.add(lookVector.scale(distance));
+        
+        return raycastToBlocks(eyePosition, endPosition);
+    }
+    
+    /**
+     * 射线检测到具体方块
+     */
+    private BlockPos raycastToBlocks(Vec3 start, Vec3 end) {
+        Vec3 entityPos = this.position();
+        double closestDistance = Double.MAX_VALUE;
+        BlockPos closestPos = null;
+        
+        for (Map.Entry<BlockPos, AABB> entry : collisionBoxes.entrySet()) {
+            BlockPos localPos = entry.getKey();
+            AABB box = entry.getValue().move(entityPos.x, entityPos.y, entityPos.z);
+            
+            // 检测射线与方块的交点
+            BlockHitResult hit = box.clip(start, end);
+            if (hit != null) {
+                double distance = start.distanceTo(hit.getLocation());
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestPos = localPos;
+                }
+            }
+        }
+        
+        return closestPos;
     }
     
     @Override
@@ -295,22 +337,137 @@ public class PhysicsBlockEntity extends Entity {
     }
     
     /**
-     * 玩家右键交互
+     * 玩家右键交互 - 支持方块的完整交互
      */
     @Override
     public InteractionResult interact(Player player, InteractionHand hand) {
-        if (!level.isClientSide) {
-            // 右键切换物理状态
-            boolean current = this.entityData.get(DATA_IS_PHYSICS_ACTIVE);
-            this.entityData.set(DATA_IS_PHYSICS_ACTIVE, !current);
-            
-            player.displayClientMessage(
-                Component.literal(current ? "Physics Disabled" : "Physics Enabled"), 
-                true);
-            
-            return InteractionResult.SUCCESS;
+        if (player.level().isClientSide) {
+            return InteractionResult.CONSUME;
         }
-        return InteractionResult.CONSUME;
+        
+        // 查找玩家点击的具体方块
+        BlockPos clickedLocalPos = findClickedBlockPos(player, 1.0f);
+        
+        if (clickedLocalPos != null) {
+            BlockState state = blockStates.get(clickedLocalPos);
+            if (state != null && !state.isAir()) {
+                // 尝试用虚拟方块位置进行交互
+                InteractionResult result = interactWithBlock(player, hand, clickedLocalPos, state);
+                if (result != InteractionResult.PASS) {
+                    return result;
+                }
+            }
+        }
+        
+        // 如果没有点击到具体方块，或者方块不支持交互，切换物理状态
+        boolean current = this.entityData.get(DATA_IS_PHYSICS_ACTIVE);
+        this.entityData.set(DATA_IS_PHYSICS_ACTIVE, !current);
+        
+        player.displayClientMessage(
+            Component.literal(current ? "Physics Disabled" : "Physics Enabled"), 
+            true);
+        
+        return InteractionResult.SUCCESS;
+    }
+    
+    /**
+     * 与单个方块进行交互
+     */
+    private InteractionResult interactWithBlock(Player player, InteractionHand hand, 
+                                                BlockPos localPos, BlockState state) {
+        try {
+            // 处理特殊方块交互（拉杆、按钮、门等）
+            if (isInteractableBlock(state)) {
+                handleSpecialBlockInteraction(player, hand, localPos, state);
+                return InteractionResult.SUCCESS;
+            }
+            
+        } catch (Exception e) {
+            WaterfallMod.LOGGER.warn("Error interacting with block: " + e.getMessage());
+        }
+        
+        return InteractionResult.PASS;
+    }
+    
+    /**
+     * 检查方块是否可交互
+     */
+    private boolean isInteractableBlock(BlockState state) {
+        // 检查各种可交互方块
+        String blockId = state.getBlock().toString().toLowerCase();
+        return blockId.contains("lever") || 
+               blockId.contains("button") || 
+               blockId.contains("door") || 
+               blockId.contains("chest") ||
+               blockId.contains("fence_gate") ||
+               blockId.contains("trapdoor") ||
+               blockId.contains("campfire");
+    }
+    
+    /**
+     * 处理特殊方块的交互（切换方块状态）
+     */
+    private void handleSpecialBlockInteraction(Player player, InteractionHand hand, 
+                                                 BlockPos localPos, BlockState state) {
+        // 更新方块状态
+        BlockState newState = cycleBlockState(state);
+        if (newState != state) {
+            blockStates.put(localPos, newState);
+            
+            // 重新计算碰撞体积
+            calculateCollisionBoxes();
+            
+            // 通知客户端更新
+            this.setChanged();
+        }
+    }
+    
+    /**
+     * 切换方块状态（拉杆、按钮等）
+     */
+    private BlockState cycleBlockState(BlockState state) {
+        // 处理拉杆
+        if (state.hasProperty(BlockStateProperties.POWERED)) {
+            return state.cycle(BlockStateProperties.POWERED);
+        }
+        // 处理门
+        if (state.hasProperty(BlockStateProperties.OPEN)) {
+            return state.cycle(BlockStateProperties.OPEN);
+        }
+        // 处理栅栏门
+        if (state.hasProperty(BlockStateProperties.OPEN)) {
+            return state.cycle(BlockStateProperties.OPEN);
+        }
+        // 处理活板门
+        if (state.hasProperty(BlockStateProperties.OPEN)) {
+            return state.cycle(BlockStateProperties.OPEN);
+        }
+        
+        return state;
+    }
+    
+    /**
+     * 更新单个方块状态
+     */
+    public void setBlockState(BlockPos localPos, BlockState state) {
+        blockStates.put(localPos, state);
+        calculateCollisionBoxes();
+        this.setChanged();
+    }
+    
+    /**
+     * 玩家左键攻击
+     */
+    @Override
+    public void attack(Player player) {
+        if (!level.isClientSide) {
+            // 查找点击的方块
+            BlockPos clickedPos = findClickedBlockPos(player, 1.0f);
+            if (clickedPos != null) {
+                // 处理破坏或其他攻击逻辑
+                WaterfallMod.LOGGER.debug("Attacked block at: " + clickedPos);
+            }
+        }
     }
     
     /**

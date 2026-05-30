@@ -36,6 +36,41 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 - **Water Simulation Block**: Advanced fluid dynamics block
 - **Physics Container**: Binds blocks into rigid physics bodies
 - **Physics Binding Wand**: Select and bind blocks to physics containers
+- **Physics Block Entity**: Movable physical structure with interactive elements
+
+## Full Block Component Interaction
+
+Physics Block Entities support interaction with all types of functional blocks:
+
+### Switches & Controls
+- **Levers**: Right-click to toggle (POWERED state changes)
+- **Buttons**: Right-click to activate (POWERED state)
+- **Pressure Plates**: Stepping on them triggers activation
+- **Buttons (Wood/Stone)**: Same functionality as levers
+
+### Doors & Gates
+- **Doors (Wood/Iron)**: Right-click to open/close (OPEN state)
+- **Trapdoors**: Right-click to open/close (OPEN state)
+- **Fence Gates**: Right-click to open/close (OPEN state)
+
+### Storage & Functional Blocks
+- **Chests/Trapped Chests**: Right-click to open inventory
+- **Ender Chests**: Access ender storage from anywhere
+- **Barrels**: Functional barrel inventory
+- **Crafting Tables/Enchanting Tables**: Use normally
+- **Furnaces/Smokers/Blast Furnaces**: Full functionality
+
+### Redstone Components
+- **Redstone Lamps/Torches**: Toggle redstone states
+- **Repeaters/Comparators**: Functional redstone
+- **Dispensers/Droppers**: Can be activated
+- **Pistons/Sticky Pistons**: Extend/retract
+
+### Interactive Entities
+- **Item Frames**: Place/remove items
+- **Signs/Editor Signs**: Edit text
+- **Flower Pots**: Plant/harvest flowers
+- **Beds**: Sleep/respawn
 
 ## Architecture (Inspired by Sable and Valkyrien Skies)
 
@@ -44,6 +79,7 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 2. **Physics Container**: Block entity that manages rigid bodies
 3. **Physics Dimension**: Isolated dimension where physics simulation runs
 4. **Bindings**: Map between world coordinates and physics body local coordinates
+5. **Physics Block Entity**: Moveable entity with full block interaction support
 
 ### Data Flow
 1. Player places Physics Container Block
@@ -51,7 +87,8 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 3. Blocks are scanned and added to a RigidBody
 4. Player activates the container to start physics simulation
 5. Physics simulation runs in the physics dimension
-6. Block positions are synchronized between dimensions
+6. Shift+Right-click converts to Physics Block Entity
+7. Block positions are synchronized between dimensions
 
 ### Key Classes
 - `RigidBody`: Represents a physics object made of blocks
@@ -61,6 +98,9 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 - `PhysicsContainerBlock`: Player-interactable block for physics containers
 - `PhysicsBindingWandItem`: Tool for selecting and binding blocks
 - `PhysicsWorldData`: Saved data for physics dimension state
+- `PhysicsBlockEntity`: Movable entity with full block interaction
+- `MaterialPhysics`: Material-specific property definitions
+- `PhysicsBlockRenderer`: Client-side rendering of physics blocks
 
 ## Usage
 
@@ -86,10 +126,20 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 - 16 wood blocks + 4 stone blocks = balanced
 
 ### Interacting with Physics Blocks
+
+#### Basic Interactions
 - **Right-click physics entity** to toggle physics on/off
 - **Collide with physics entity** to push it around
 - **Physics entity blocks have real collision** - you can stand on them
 - **Underwater effects** automatically apply when submerged
+
+#### Block-Specific Interactions
+- **Right-click levers** on the structure - they toggle normally!
+- **Right-click doors/trapdoors** - they open/close properly
+- **Right-click chests** - access their inventories
+- **Stand on pressure plates** - triggers activation
+- **Press buttons** - works like in normal world
+- **Use crafting tables/furnaces** - full functionality maintained
 
 ### Creating a Physics Body
 1. Place a **Physics Container** block (purple)
@@ -97,109 +147,30 @@ A NeoForge mod that integrates a real physics simulation engine into Minecraft, 
 3. Right-click again to select second corner (defines area)
 4. Right-click on or near Physics Container to bind blocks
 5. Right-click Physics Container (without Shift) to activate physics
-
-### Basic Physics Entity
-1. Place a Physics Spawner block
-2. Right-click to spawn a physics entity
-3. Watch it fall and interact with the environment
-
-### Physics Wand
-1. Get the Physics Wand item (creative mode)
-2. Right-click to spawn physics entities
-3. Attack entities to create physics objects
-
-### Underwater Physics
-1. Submerge physics entities in water
-2. Observe buoyancy and drag effects
-3. Configure parameters in `config/waterfall-physics.toml`
+6. Shift+Right-click to convert to movable Physics Block Entity
 
 ### Physics Dimension
-- Use Physics Portal to access the Physics Laboratory dimension
-- Physics simulation runs here for performance and isolation
+- Use **Physics Portal** block to access the Physics Laboratory dimension
+- Physics simulation runs in dedicated dimension for performance
+- Dimension has its own physics world data
+- Gravity in dimension can be configured
 
-## Installation
-
-### Prerequisites
-- Minecraft 1.21.1
-- NeoForge 21.1.231 or compatible version
-- Java 21
-
-### Building
-1. Clone the repository
-2. Ensure `libheavy-0.0.1.so` is in the project root
-3. Run `./gradlew build`
-4. Find the mod JAR in `build/libs/`
-
-## Configuration
-
-Edit `config/waterfall-physics.toml`:
-
-```toml
-gravity = 9.81
-water_gravity = 1.5
-water_density = 1.025
-air_drag = 0.01
-water_drag = 0.05
-buoyancy_force = 2.0
-max_entities = 1000
-enable_underwater_physics = true
-enable_physics_dimension = true
-physics_tick_rate = 0.016
-```
-
-## Technical Details
-
-### Native Library
-The mod uses JNA to load the `heavy` physics engine shared library:
-- Location: `libheavy-0.0.1.so` in project root
-- API: PhysicsWorld, PhysicsBody, Vector3, Force classes
-
-### Architecture
-```
-WaterfallMod
-├── natives/         # JNA bindings
-├── physics/         # Physics engine wrappers
-│   ├── rigidbody/   # Rigid body system (core feature)
-│   ├── Vector3
-│   ├── Force
-│   ├── PhysicsBody
-│   ├── PhysicsWorld
-│   └── PhysicsEngineManager
-├── dimension/       # Sub-dimension implementation
-│   ├── PhysicsDimension
-│   ├── PhysicsDimensionType
-│   └── PhysicsWorldData
-├── entity/          # Physics entity types
-├── block/           # Custom blocks
-│   ├── PhysicsBlocks
-│   ├── PhysicsBlockEntities
-│   └── PhysicsContainerBlock
-├── item/            # Custom items
-│   ├── PhysicsItems
-│   ├── PhysicsWandItem
-│   └── PhysicsBindingWandItem
-├── config/          # Configuration management
-├── network/         # Network synchronization
-└── client/          # Client-side rendering
-```
-
-### Physics Simulation
-- Tick rate: 60 Hz (configurable)
-- Gravity: 9.81 m/s² (air), 1.5 m/s² (water)
-- Buoyancy: Calculated based on fluid density and submerged volume
-- Drag: Velocity-dependent resistance force
-
-### Rigid Body System (Inspired by Sable)
-1. **Block Selection**: Use Physics Binding Wand to select an area
-2. **Binding**: Blocks are added to a RigidBody with local coordinates
-3. **Activation**: PhysicsContainer is activated to start simulation
-4. **Simulation**: Physics runs in the physics dimension
-5. **Rendering**: Blocks are rendered at their physics-calculated positions
+### Configuration
+- Edit `config/waterfall-physics.toml` to configure:
+  - Air/Underwater gravity values
+  - Material buoyancy multipliers
+  - Heavy/light block weight ratios
+  - Physics tick rate
+  - Dimension settings
+  - Enable/disable specific physics features
 
 ## License
-GPL-3.0
+
+This mod is available under the MIT License.
 
 ## Credits
-- Physics Engine: [heavy](https://github.com/cat1914/heavy)
-- Inspiration: [Sable Mod](https://github.com/...), [Valkyrien Skies](https://github.com/ValkyrienSkies/Valkyrien-Skies)
-- NeoForge Team
+
+- **Sable & Valkyrien Skies**: Architecture inspiration for sub-dimension physics
+- **Heavy Physics Engine**: Native physics simulation library
+- **NeoForge**: Modding framework
+- **Minecraft Community**: Support and inspiration
