@@ -349,8 +349,8 @@ public class PhysicsBlockEntity extends Entity {
         }
         
         // 如果没有点击到具体方块，或者方块不支持交互，切换物理状态
-        boolean current = this.entityData.get(DATA_IS_PHYSICS_ACTIVE);
-        this.entityData.set(DATA_IS_PHYSICS_ACTIVE, !current);
+        boolean current = this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE);
+        this.getEntityData().set(DATA_IS_PHYSICS_ACTIVE, !current);
         
         player.displayClientMessage(
             Component.literal(current ? "Physics Disabled" : "Physics Enabled"), 
@@ -416,7 +416,7 @@ public class PhysicsBlockEntity extends Entity {
      */
     private void setDataSynchronized(boolean changed) {
         // 在NeoForge中，可以使用这个标记dirty
-        this.entityData.set(DATA_IS_PHYSICS_ACTIVE, this.entityData.get(DATA_IS_PHYSICS_ACTIVE));
+        this.getEntityData().set(DATA_IS_PHYSICS_ACTIVE, this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE));
     }
     
     /**
@@ -534,7 +534,7 @@ public class PhysicsBlockEntity extends Entity {
         }
         
         // 保存其他数据
-        tag.putBoolean("physicsActive", this.entityData.get(DATA_IS_PHYSICS_ACTIVE));
+        tag.putBoolean("physicsActive", this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE));
     }
     
     @Override
@@ -564,7 +564,7 @@ public class PhysicsBlockEntity extends Entity {
         
         // 读取其他数据
         if (tag.contains("physicsActive")) {
-            this.entityData.set(DATA_IS_PHYSICS_ACTIVE, tag.getBoolean("physicsActive"));
+            this.getEntityData().set(DATA_IS_PHYSICS_ACTIVE, tag.getBoolean("physicsActive"));
         }
         
         // 重新计算碰撞体积

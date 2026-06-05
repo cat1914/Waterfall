@@ -1,6 +1,7 @@
 package com.waterfall.item;
 
 import net.minecraft.core.registries.Registries;
+import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import com.waterfall.WaterfallMod;
