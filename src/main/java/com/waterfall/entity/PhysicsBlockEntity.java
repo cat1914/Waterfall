@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * 物理方块实体：代表一组绑定在一起的物理化方块
@@ -48,6 +49,7 @@ public class PhysicsBlockEntity extends Entity {
         SynchedEntityData.defineId(PhysicsBlockEntity.class, EntityDataSerializers.INT);
     
     private RigidBodyId rigidBodyId;
+    private UUID rotationalBodyId;
     private final Map<BlockPos, BlockState> blockStates = new HashMap<>();
     private final Map<BlockPos, AABB> collisionBoxes = new HashMap<>();
     private AABB overallAABB = new AABB(0, 0, 0, 1, 1, 1);
@@ -511,6 +513,17 @@ public class PhysicsBlockEntity extends Entity {
     
     public RigidBodyId getRigidBodyId() {
         return rigidBodyId;
+    }
+    
+    /**
+     * 设置旋转刚体ID
+     */
+    public void setRotationalBodyId(UUID id) {
+        this.rotationalBodyId = id;
+    }
+    
+    public UUID getRotationalBodyId() {
+        return rotationalBodyId;
     }
     
     @Override

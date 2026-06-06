@@ -12,8 +12,12 @@ import com.waterfall.entity.PhysicsEntityType;
 import com.waterfall.block.PhysicsBlocks;
 import com.waterfall.block.PhysicsBlockEntities;
 import com.waterfall.network.PhysicsPacketHandler;
+import com.waterfall.natives.DirectionLibrary;
+import com.waterfall.natives.HeavyLibrary;
+import com.waterfall.natives.NativeLoader;
 import com.waterfall.physics.PhysicsEngineManager;
 import com.waterfall.physics.rigidbody.RigidBodyManager;
+import com.waterfall.physics.rotation.RotationalBodyManager;
 
 @Mod(WaterfallMod.MODID)
 public class WaterfallMod {
@@ -22,6 +26,15 @@ public class WaterfallMod {
     
     public WaterfallMod(IEventBus modEventBus) {
         LOGGER.info("Initializing Waterfall Physics Mod");
+        
+        // Initialize native libraries
+        try {
+            NativeLoader.loadHeavy();
+            NativeLoader.loadDirection();
+            LOGGER.info("Native libraries loaded successfully");
+        } catch (Exception e) {
+            LOGGER.error("Failed to load native libraries", e);
+        }
         
         PhysicsConfig.register();
         PhysicsEntityType.register(modEventBus);
@@ -55,6 +68,7 @@ public class WaterfallMod {
             PhysicsEngineManager.getInstance().tick(level);
             if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                 RigidBodyManager.getInstance().tick(serverLevel);
+                RotationalBodyManager.getInstance().tick(serverLevel);
             }
         });
     }
