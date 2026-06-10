@@ -17,7 +17,7 @@ public class Vector3 implements AutoCloseable {
         this.ownsNative = false;
     }
     
-    Pointer getNativeVector() {
+    public Pointer getNativeVector() {
         return nativeVector;
     }
     

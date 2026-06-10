@@ -56,7 +56,7 @@ public class WaterfallPhysicsExample {
     
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
-            event.accept(TEST_SPAWNER);
+            event.accept(TEST_SPAWNER.get());
         }
     }
     

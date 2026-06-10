@@ -113,7 +113,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
 
     @Override
     public void activatePhysics(PhysicsBlockEntity entity) {
-        if (entity != null && entity.getLevel() instanceof ServerLevel) {
+        if (entity != null && entity.level instanceof ServerLevel) {
             entity.getEntityData().set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, true);
             
             RigidBodyId id = entity.getRigidBodyId();
@@ -173,7 +173,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
     public void destroyPhysicsStructure(PhysicsBlockEntity entity, boolean restoreBlocks) {
         if (entity == null) return;
         
-        if (!(entity.getLevel() instanceof ServerLevel serverLevel)) {
+        if (!(entity.level instanceof ServerLevel serverLevel)) {
             entity.discard();
             return;
         }
@@ -244,7 +244,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
         // Fallback check
         Vec3 pos = entity.position();
         BlockPos blockPos = new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
-        FluidState fluidState = entity.getLevel().getFluidState(blockPos);
+        FluidState fluidState = entity.level.getFluidState(blockPos);
         return fluidState.is(Fluids.WATER) || fluidState.is(Fluids.FLOWING_WATER);
     }
 

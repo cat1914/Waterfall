@@ -5,7 +5,6 @@ import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.ChunkAccess;
-import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.storage.LevelData;
@@ -122,7 +121,8 @@ public class PhysicsEngineManager {
         
         FluidState fluidState = level.getFluidState(new BlockPos((int) position.x, (int) position.y, (int) position.z));
         if (!fluidState.isEmpty()) {
-            float height = (float) fluidState.getHeight();
+            BlockPos blockPos = new BlockPos((int) position.x, (int) position.y, (int) position.z);
+            float height = (float) fluidState.getHeight(level, blockPos);
             if (position.y < height) {
                 float drag = AIR_DRAG;
                 Vec3 velocity = entityVelocityMap.getOrDefault(UUID.randomUUID(), Vec3.ZERO);
