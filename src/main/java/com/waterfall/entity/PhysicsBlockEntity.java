@@ -102,7 +102,7 @@ public class PhysicsBlockEntity extends Entity {
             BlockState state = entry.getValue();
             
             // 获取方块的碰撞形状
-            VoxelShape shape = state.getCollisionShape(this.level, localPos);
+            VoxelShape shape = state.getCollisionShape(this.level(), localPos);
             
             // 将形状转换为AABB并偏移到相对位置
             for (AABB aabb : shape.toAabbs()) {
@@ -190,7 +190,7 @@ public class PhysicsBlockEntity extends Entity {
         super.onSyncedDataUpdated(key);
         if (key.equals(DATA_IS_PHYSICS_ACTIVE)) {
             // 物理状态改变时更新
-            if (rigidBodyId != null && this.level instanceof ServerLevel serverLevel) {
+            if (rigidBodyId != null && this.level() instanceof ServerLevel serverLevel) {
                 RigidBody body = RigidBodyManager.getInstance().getRigidBody(rigidBodyId);
                 if (body != null) {
                     body.setActive(this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE));
@@ -204,7 +204,7 @@ public class PhysicsBlockEntity extends Entity {
         super.tick();
         
         // 初始化物理
-        if (!this.level.isClientSide && !isInitialized) {
+        if (!this.level().isClientSide && !isInitialized) {
             initializePhysics();
             isInitialized = true;
         }
@@ -213,7 +213,7 @@ public class PhysicsBlockEntity extends Entity {
         prevPos = this.position();
         prevMotion = this.getDeltaMovement();
         
-        if (this.level.isClientSide) {
+        if (this.level().isClientSide) {
             tickClient();
         } else {
             tickServer();
@@ -226,7 +226,7 @@ public class PhysicsBlockEntity extends Entity {
     private void initializePhysics() {
         if (rigidBodyId == null && !blockStates.isEmpty()) {
             // 创建新的刚体
-            if (this.level instanceof ServerLevel serverLevel) {
+            if (this.level() instanceof ServerLevel serverLevel) {
                 RigidBody body = RigidBodyManager.getInstance().createRigidBody(serverLevel);
                 this.rigidBodyId = body.getId();
                 
@@ -294,25 +294,24 @@ public class PhysicsBlockEntity extends Entity {
      */
     private boolean checkIfInWater(Vec3 pos) {
         BlockPos blockPos = new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
-        return this.level.getFluidState(blockPos).isSourceOfType(net.minecraft.world.level.material.Fluids.WATER) ||
-               this.level.getFluidState(blockPos).isSourceOfType(net.minecraft.world.level.material.Fluids.FLOWING_WATER);
+        return this.level().getFluidState(blockPos).isSourceOfType(net.minecraft.world.level.material.Fluids.WATER) ||
+               this.level().getFluidState(blockPos).isSourceOfType(net.minecraft.world.level.material.Fluids.FLOWING_WATER);
     }
     
     /**
      * 应用重力（未激活物理时）
      */
-    private void applyGravity() {
+    @Override
+    protected void applyGravity() {
         Vec3 motion = this.getDeltaMovement();
         double y = motion.y - 0.08; // 标准重力
         this.setDeltaMovement(motion.x * 0.98, y * 0.98, motion.z * 0.98);
     }
     
-    @Override
     public boolean canCollideWith(Entity entity) {
         return entity.canBeCollidedWith() && !isRemoved();
     }
     
-    @Override
     public boolean canBeCollidedWith() {
         return true;
     }
@@ -456,9 +455,8 @@ public class PhysicsBlockEntity extends Entity {
     /**
      * 玩家左键攻击
      */
-    @Override
     public void attack(Player player) {
-        if (!this.level.isClientSide) {
+        if (!this.level().isClientSide) {
             // 查找点击的方块
             BlockPos clickedPos = findClickedBlockPos(player, 1.0f);
             if (clickedPos != null) {
