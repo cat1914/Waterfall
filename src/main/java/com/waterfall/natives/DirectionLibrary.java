@@ -8,9 +8,6 @@ import com.sun.jna.Pointer;
  * JNA interface for the direction rotation calculation library
  */
 public interface DirectionLibrary extends Library {
-    static {
-        NativeLoader.loadDirection();
-    }
     
     DirectionLibrary INSTANCE = Native.load("direction", DirectionLibrary.class);
 
