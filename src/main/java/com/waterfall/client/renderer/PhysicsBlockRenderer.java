@@ -56,9 +56,9 @@ public class PhysicsBlockRenderer extends EntityRenderer<PhysicsBlockEntity> {
             poseStack.translate(localPos.getX(), localPos.getY(), localPos.getZ());
             
             // 计算光照（简单处理，使用实体位置的光照）
-            int actualLight = LevelRenderer.getLightColor(entity.level, 
-                new BlockPos((int)entity.getX() + localPos.getX(), 
-                           (int)entity.getY() + localPos.getY(), 
+            int actualLight = LevelRenderer.getLightColor(entity.level(),
+                new BlockPos((int)entity.getX() + localPos.getX(),
+                           (int)entity.getY() + localPos.getY(),
                            (int)entity.getZ() + localPos.getZ()));
             
             // 渲染方块

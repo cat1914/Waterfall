@@ -321,7 +321,6 @@ public class PhysicsBlockEntity extends Entity {
         return true;
     }
     
-    @Override
     public PushReaction getPushReaction() {
         return PushReaction.NORMAL;
     }
