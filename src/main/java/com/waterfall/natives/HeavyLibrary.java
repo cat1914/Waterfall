@@ -9,6 +9,7 @@ import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.FloatByReference;
 
 public interface HeavyLibrary extends Library {
+    
     HeavyLibrary INSTANCE = Native.load("heavy", HeavyLibrary.class);
     
     Pointer heavy_PhysicsWorld_create();

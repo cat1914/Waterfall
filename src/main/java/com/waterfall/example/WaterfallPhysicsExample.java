@@ -1,6 +1,7 @@
 package com.waterfall.example;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -14,8 +15,8 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.neoforge.common.DeferredHolder;
-import net.neoforged.neoforge.common.DeferredRegister;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import com.waterfall.WaterfallPhysics;
 import com.waterfall.entity.PhysicsBlockEntity;
@@ -36,7 +37,7 @@ public class WaterfallPhysicsExample {
     public static final String MOD_ID = "waterfall_example";
     
     // Items registration
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.Items.create(MOD_ID);
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(Registries.ITEM, MOD_ID);
     
     // Example test item
     public static final DeferredHolder<Item, PhysicsStructureSpawnerItem> TEST_SPAWNER = 
@@ -55,7 +56,7 @@ public class WaterfallPhysicsExample {
     
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
-            event.accept(TEST_SPAWNER);
+            event.accept(TEST_SPAWNER.get());
         }
     }
     

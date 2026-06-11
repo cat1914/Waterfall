@@ -17,7 +17,7 @@ public class Vector3 implements AutoCloseable {
         this.ownsNative = false;
     }
     
-    Pointer getNativeVector() {
+    public Pointer getNativeVector() {
         return nativeVector;
     }
     
@@ -89,5 +89,42 @@ public class Vector3 implements AutoCloseable {
     
     public static Vector3 backward() {
         return new Vector3(0, 0, 1);
+    }
+    
+    /**
+     * 计算叉积 (cross product)
+     * this × other
+     */
+    public Vector3 cross(Vector3 other) {
+        return new Vector3(
+            getY() * other.getZ() - getZ() * other.getY(),
+            getZ() * other.getX() - getX() * other.getZ(),
+            getX() * other.getY() - getY() * other.getX()
+        );
+    }
+    
+    /**
+     * 计算点积 (dot product)
+     */
+    public float dot(Vector3 other) {
+        return getX() * other.getX() + getY() * other.getY() + getZ() * other.getZ();
+    }
+    
+    /**
+     * 计算长度 (magnitude)
+     */
+    public float length() {
+        return (float) Math.sqrt(getX() * getX() + getY() * getY() + getZ() * getZ());
+    }
+    
+    /**
+     * 归一化
+     */
+    public Vector3 normalized() {
+        float len = length();
+        if (len > 0.0001f) {
+            return new Vector3(getX() / len, getY() / len, getZ() / len);
+        }
+        return zero();
     }
 }

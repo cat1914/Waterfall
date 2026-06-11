@@ -1,10 +1,7 @@
 package com.waterfall.config;
 
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.ConfigFileLoadEvent;
-import net.neoforged.neoforge.fml.loading.FMLPaths;
+import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -36,11 +33,6 @@ public class PhysicsConfig {
     
     public static void register() {
         NeoForge.EVENT_BUS.register(PhysicsConfig.class);
-        loadConfig();
-    }
-    
-    @SubscribeEvent
-    public static void onConfigLoad(ConfigFileLoadEvent event) {
         loadConfig();
     }
     

@@ -45,8 +45,6 @@ public class MaterialPhysics {
         LIGHT_MATERIALS.add(Blocks.JUNGLE_WOOD);
         LIGHT_MATERIALS.add(Blocks.ACACIA_WOOD);
         LIGHT_MATERIALS.add(Blocks.DARK_OAK_WOOD);
-        LIGHT_MATERIALS.add(Blocks.CRIMSON_WOOD);
-        LIGHT_MATERIALS.add(Blocks.WARPED_WOOD);
         
         LIGHT_MATERIALS.add(Blocks.OAK_PLANKS);
         LIGHT_MATERIALS.add(Blocks.SPRUCE_PLANKS);

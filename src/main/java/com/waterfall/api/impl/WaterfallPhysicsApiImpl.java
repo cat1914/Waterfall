@@ -2,14 +2,9 @@ package com.waterfall.api.impl;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.SpawnPlacements;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.entity.EntityTypeTest;
-import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.Vec3;
@@ -20,8 +15,11 @@ import com.waterfall.entity.PhysicsEntityType;
 import com.waterfall.physics.rigidbody.RigidBody;
 import com.waterfall.physics.rigidbody.RigidBodyId;
 import com.waterfall.physics.rigidbody.RigidBodyManager;
+import com.waterfall.physics.rotation.RotationalBody;
+import com.waterfall.physics.rotation.RotationalBodyManager;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Implementation of the Waterfall Physics API
@@ -39,6 +37,9 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
             // Create RigidBody
             RigidBody body = RigidBodyManager.getInstance().createRigidBody(serverLevel);
             
+            // Create RotationalBody
+            RotationalBody rotBody = RotationalBodyManager.getInstance().createRotationalBody(serverLevel, 1.0f);
+            
             // Add all blocks
             for (Map.Entry<BlockPos, BlockState> entry : blocks.entrySet()) {
                 body.addBlock(entry.getKey(), entry.getValue());
@@ -53,9 +54,9 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
             // Configure entity
             entity.setPos(position.x, position.y, position.z);
             entity.setRigidBodyId(body.getId());
-            entity.entityData.set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, true);
-            entity.entityData.set(PhysicsBlockEntity.DATA_LIGHT_BLOCKS, body.getLightBlockCount());
-            entity.entityData.set(PhysicsBlockEntity.DATA_HEAVY_BLOCKS, body.getHeavyBlockCount());
+            entity.getEntityData().set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, true);
+            entity.getEntityData().set(PhysicsBlockEntity.DATA_LIGHT_BLOCKS, body.getLightBlockCount());
+            entity.getEntityData().set(PhysicsBlockEntity.DATA_HEAVY_BLOCKS, body.getHeavyBlockCount());
 
             // Spawn in world
             serverLevel.addFreshEntity(entity);
@@ -113,7 +114,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
     @Override
     public void activatePhysics(PhysicsBlockEntity entity) {
         if (entity != null && entity.level() instanceof ServerLevel) {
-            entity.entityData.set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, true);
+            entity.getEntityData().set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, true);
             
             RigidBodyId id = entity.getRigidBodyId();
             if (id != null) {
@@ -128,7 +129,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
     @Override
     public void deactivatePhysics(PhysicsBlockEntity entity) {
         if (entity != null) {
-            entity.entityData.set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, false);
+            entity.getEntityData().set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, false);
             
             RigidBodyId id = entity.getRigidBodyId();
             if (id != null) {
@@ -152,7 +153,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
                         (float)force.y,
                         (float)force.z
                     );
-                    body.getPhysicsBody().applyForce(impulse);
+                    body.getPhysicsBody().applyImpulse(impulse);
                 }
             } else {
                 // Fallback to entity motion if no rigid body
@@ -164,18 +165,6 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
     @Override
     public void setVelocity(PhysicsBlockEntity entity, Vec3 velocity) {
         if (entity != null) {
-            RigidBodyId id = entity.getRigidBodyId();
-            if (id != null) {
-                RigidBody body = RigidBodyManager.getInstance().getRigidBody(id);
-                if (body != null && body.isActive()) {
-                    com.waterfall.physics.Vector3 vel = new com.waterfall.physics.Vector3(
-                        (float)velocity.x,
-                        (float)velocity.y,
-                        (float)velocity.z
-                    );
-                    body.getPhysicsBody().setVelocity(vel);
-                }
-            }
             entity.setDeltaMovement(velocity);
         }
     }
@@ -227,7 +216,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
     @Override
     public int getLightBlockCount(PhysicsBlockEntity entity) {
         if (entity != null) {
-            return entity.entityData.get(PhysicsBlockEntity.DATA_LIGHT_BLOCKS);
+            return entity.getEntityData().get(PhysicsBlockEntity.DATA_LIGHT_BLOCKS);
         }
         return 0;
     }
@@ -235,7 +224,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
     @Override
     public int getHeavyBlockCount(PhysicsBlockEntity entity) {
         if (entity != null) {
-            return entity.entityData.get(PhysicsBlockEntity.DATA_HEAVY_BLOCKS);
+            return entity.getEntityData().get(PhysicsBlockEntity.DATA_HEAVY_BLOCKS);
         }
         return 0;
     }
@@ -275,5 +264,62 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
         int light = getLightBlockCount(entity);
         int heavy = getHeavyBlockCount(entity);
         return light - (heavy * 0.25f);
+    }
+    
+    // ==================== Rotation API ====================
+    
+    @Override
+    public void applyTorque(PhysicsBlockEntity entity, float torqueX, float torqueY, float torqueZ) {
+        if (entity == null) return;
+        
+        UUID rotBodyId = entity.getRotationalBodyId();
+        if (rotBodyId != null) {
+            RotationalBody rotBody = RotationalBodyManager.getInstance().getRotationalBody(rotBodyId);
+            if (rotBody != null && !rotBody.isStatic()) {
+                com.waterfall.physics.Vector3 torque = new com.waterfall.physics.Vector3(torqueX, torqueY, torqueZ);
+                rotBody.applyTorque(torque);
+            }
+        }
+    }
+    
+    @Override
+    public void applyImpulseTorque(PhysicsBlockEntity entity, float impulseX, float impulseY, float impulseZ) {
+        if (entity == null) return;
+        
+        UUID rotBodyId = entity.getRotationalBodyId();
+        if (rotBodyId != null) {
+            RotationalBody rotBody = RotationalBodyManager.getInstance().getRotationalBody(rotBodyId);
+            if (rotBody != null && !rotBody.isStatic()) {
+                com.waterfall.physics.Vector3 impulse = new com.waterfall.physics.Vector3(impulseX, impulseY, impulseZ);
+                rotBody.applyImpulseTorque(impulse);
+            }
+        }
+    }
+    
+    @Override
+    public float[] getRotation(PhysicsBlockEntity entity) {
+        if (entity == null) return new float[]{0, 0, 0};
+        
+        UUID rotBodyId = entity.getRotationalBodyId();
+        if (rotBodyId != null) {
+            RotationalBody rotBody = RotationalBodyManager.getInstance().getRotationalBody(rotBodyId);
+            if (rotBody != null) {
+                return rotBody.getDirection().getRotation();
+            }
+        }
+        return new float[]{0, 0, 0};
+    }
+    
+    @Override
+    public void setRotation(PhysicsBlockEntity entity, float pitch, float yaw, float roll) {
+        if (entity == null) return;
+        
+        UUID rotBodyId = entity.getRotationalBodyId();
+        if (rotBodyId != null) {
+            RotationalBody rotBody = RotationalBodyManager.getInstance().getRotationalBody(rotBodyId);
+            if (rotBody != null) {
+                rotBody.getDirection().set(pitch, yaw, roll);
+            }
+        }
     }
 }

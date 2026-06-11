@@ -67,6 +67,10 @@ public class RigidBodyManager implements AutoCloseable {
         }
     }
     
+    public void removeRigidBody(RigidBodyId id, ServerLevel level) {
+        destroyRigidBody(id);
+    }
+    
     public RigidBody getRigidBody(RigidBodyId id) {
         return rigidBodies.get(id);
     }

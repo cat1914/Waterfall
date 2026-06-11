@@ -6,6 +6,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.world.level.block.state.BlockState;
 import com.waterfall.physics.MaterialPhysics;
 import com.waterfall.physics.Vector3;
+import com.waterfall.physics.PhysicsBody;
 import com.waterfall.config.PhysicsConfig;
 
 import java.util.HashMap;

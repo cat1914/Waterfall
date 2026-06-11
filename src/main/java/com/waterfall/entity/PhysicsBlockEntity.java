@@ -9,10 +9,8 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
@@ -23,21 +21,18 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import com.waterfall.WaterfallMod;
-import com.waterfall.physics.MaterialPhysics;
-import com.waterfall.physics.Vector3;
 import com.waterfall.physics.rigidbody.RigidBody;
 import com.waterfall.physics.rigidbody.RigidBodyId;
 import com.waterfall.physics.rigidbody.RigidBodyManager;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -54,6 +49,7 @@ public class PhysicsBlockEntity extends Entity {
         SynchedEntityData.defineId(PhysicsBlockEntity.class, EntityDataSerializers.INT);
     
     private RigidBodyId rigidBodyId;
+    private UUID rotationalBodyId;
     private final Map<BlockPos, BlockState> blockStates = new HashMap<>();
     private final Map<BlockPos, AABB> collisionBoxes = new HashMap<>();
     private AABB overallAABB = new AABB(0, 0, 0, 1, 1, 1);
@@ -77,13 +73,13 @@ public class PhysicsBlockEntity extends Entity {
         calculateCollisionBoxes();
         
         // 设置位置
-        this.setPos(pos);
+        this.setPos(pos.x, pos.y, pos.z);
         this.prevPos = pos;
         
         // 同步数据
-        this.entityData.set(DATA_LIGHT_BLOCKS, rigidBody.getLightBlockCount());
-        this.entityData.set(DATA_HEAVY_BLOCKS, rigidBody.getHeavyBlockCount());
-        this.entityData.set(DATA_IS_PHYSICS_ACTIVE, rigidBody.isActive());
+        this.getEntityData().set(DATA_LIGHT_BLOCKS, rigidBody.getLightBlockCount());
+        this.getEntityData().set(DATA_HEAVY_BLOCKS, rigidBody.getHeavyBlockCount());
+        this.getEntityData().set(DATA_IS_PHYSICS_ACTIVE, rigidBody.isActive());
     }
     
     @Override
@@ -106,7 +102,7 @@ public class PhysicsBlockEntity extends Entity {
             BlockState state = entry.getValue();
             
             // 获取方块的碰撞形状
-            VoxelShape shape = state.getCollisionShape(this.level, localPos);
+            VoxelShape shape = state.getCollisionShape(this.level(), localPos);
             
             // 将形状转换为AABB并偏移到相对位置
             for (AABB aabb : shape.toAabbs()) {
@@ -174,10 +170,11 @@ public class PhysicsBlockEntity extends Entity {
             BlockPos localPos = entry.getKey();
             AABB box = entry.getValue().move(entityPos.x, entityPos.y, entityPos.z);
             
-            // 检测射线与方块的交点
-            BlockHitResult hit = box.clip(start, end);
-            if (hit != null) {
-                double distance = start.distanceTo(hit.getLocation());
+            // 检测射线与方块的交点 - clip返回Optional<Vec3>
+            Optional<Vec3> hitOpt = box.clip(start, end);
+            if (hitOpt.isPresent()) {
+                Vec3 hit = hitOpt.get();
+                double distance = start.distanceTo(hit);
                 if (distance < closestDistance) {
                     closestDistance = distance;
                     closestPos = localPos;
@@ -193,10 +190,10 @@ public class PhysicsBlockEntity extends Entity {
         super.onSyncedDataUpdated(key);
         if (key.equals(DATA_IS_PHYSICS_ACTIVE)) {
             // 物理状态改变时更新
-            if (rigidBodyId != null && level instanceof ServerLevel serverLevel) {
+            if (rigidBodyId != null && this.level() instanceof ServerLevel serverLevel) {
                 RigidBody body = RigidBodyManager.getInstance().getRigidBody(rigidBodyId);
                 if (body != null) {
-                    body.setActive(this.entityData.get(DATA_IS_PHYSICS_ACTIVE));
+                    body.setActive(this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE));
                 }
             }
         }
@@ -207,7 +204,7 @@ public class PhysicsBlockEntity extends Entity {
         super.tick();
         
         // 初始化物理
-        if (!level.isClientSide && !isInitialized) {
+        if (!this.level().isClientSide && !isInitialized) {
             initializePhysics();
             isInitialized = true;
         }
@@ -216,7 +213,7 @@ public class PhysicsBlockEntity extends Entity {
         prevPos = this.position();
         prevMotion = this.getDeltaMovement();
         
-        if (level.isClientSide) {
+        if (this.level().isClientSide) {
             tickClient();
         } else {
             tickServer();
@@ -229,7 +226,7 @@ public class PhysicsBlockEntity extends Entity {
     private void initializePhysics() {
         if (rigidBodyId == null && !blockStates.isEmpty()) {
             // 创建新的刚体
-            if (level instanceof ServerLevel serverLevel) {
+            if (this.level() instanceof ServerLevel serverLevel) {
                 RigidBody body = RigidBodyManager.getInstance().createRigidBody(serverLevel);
                 this.rigidBodyId = body.getId();
                 
@@ -240,11 +237,11 @@ public class PhysicsBlockEntity extends Entity {
                 
                 // 设置位置
                 Vec3 pos = this.position();
-                body.getPhysicsBody().setPosition(new Vector3((float)pos.x, (float)pos.y, (float)pos.z));
+                body.getPhysicsBody().setPosition(new com.waterfall.physics.Vector3((float)pos.x, (float)pos.y, (float)pos.z));
                 
                 // 同步数据
-                this.entityData.set(DATA_LIGHT_BLOCKS, body.getLightBlockCount());
-                this.entityData.set(DATA_HEAVY_BLOCKS, body.getHeavyBlockCount());
+                this.getEntityData().set(DATA_LIGHT_BLOCKS, body.getLightBlockCount());
+                this.getEntityData().set(DATA_HEAVY_BLOCKS, body.getHeavyBlockCount());
             }
         }
     }
@@ -254,11 +251,11 @@ public class PhysicsBlockEntity extends Entity {
      */
     private void tickServer() {
         // 更新物理
-        if (rigidBodyId != null && this.entityData.get(DATA_IS_PHYSICS_ACTIVE)) {
+        if (rigidBodyId != null && this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE)) {
             RigidBody body = RigidBodyManager.getInstance().getRigidBody(rigidBodyId);
             if (body != null && body.isActive()) {
                 // 获取物理位置
-                Vector3 physPos = body.getPhysicsBody().getPosition();
+                com.waterfall.physics.Vector3 physPos = body.getPhysicsBody().getPosition();
                 Vec3 newPos = new Vec3(physPos.getX(), physPos.getY(), physPos.getZ());
                 
                 // 检查是否在水中
@@ -270,20 +267,14 @@ public class PhysicsBlockEntity extends Entity {
                     body.applyUnderwaterForces();
                 }
                 
-                // 移动实体
-                Vec3 currentPos = this.position();
-                Vec3 movement = newPos.subtract(currentPos);
-                this.moveNoCollide(movement.x, movement.y, movement.z);
-                
-                // 同步位置
+                // 移动实体 - 使用正确的API
                 this.setPos(newPos.x, newPos.y, newPos.z);
             }
         }
         
         // 基础物理（未激活时使用）
-        if (!this.entityData.get(DATA_IS_PHYSICS_ACTIVE)) {
+        if (!this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE)) {
             applyGravity();
-            checkInsideBlocks();
         }
         
         // 更新边界框
@@ -303,25 +294,24 @@ public class PhysicsBlockEntity extends Entity {
      */
     private boolean checkIfInWater(Vec3 pos) {
         BlockPos blockPos = new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
-        return level.getFluidState(blockPos).isSourceOfType(net.minecraft.world.level.material.Fluids.WATER) ||
-               level.getFluidState(blockPos).isSourceOfType(net.minecraft.world.level.material.Fluids.FLOWING_WATER);
+        return this.level().getFluidState(blockPos).isSourceOfType(net.minecraft.world.level.material.Fluids.WATER) ||
+               this.level().getFluidState(blockPos).isSourceOfType(net.minecraft.world.level.material.Fluids.FLOWING_WATER);
     }
     
     /**
      * 应用重力（未激活物理时）
      */
-    private void applyGravity() {
+    @Override
+    protected void applyGravity() {
         Vec3 motion = this.getDeltaMovement();
         double y = motion.y - 0.08; // 标准重力
         this.setDeltaMovement(motion.x * 0.98, y * 0.98, motion.z * 0.98);
     }
     
-    @Override
     public boolean canCollideWith(Entity entity) {
         return entity.canBeCollidedWith() && !isRemoved();
     }
     
-    @Override
     public boolean canBeCollidedWith() {
         return true;
     }
@@ -331,7 +321,6 @@ public class PhysicsBlockEntity extends Entity {
         return true;
     }
     
-    @Override
     public PushReaction getPushReaction() {
         return PushReaction.NORMAL;
     }
@@ -360,8 +349,8 @@ public class PhysicsBlockEntity extends Entity {
         }
         
         // 如果没有点击到具体方块，或者方块不支持交互，切换物理状态
-        boolean current = this.entityData.get(DATA_IS_PHYSICS_ACTIVE);
-        this.entityData.set(DATA_IS_PHYSICS_ACTIVE, !current);
+        boolean current = this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE);
+        this.getEntityData().set(DATA_IS_PHYSICS_ACTIVE, !current);
         
         player.displayClientMessage(
             Component.literal(current ? "Physics Disabled" : "Physics Enabled"), 
@@ -417,9 +406,17 @@ public class PhysicsBlockEntity extends Entity {
             // 重新计算碰撞体积
             calculateCollisionBoxes();
             
-            // 通知客户端更新
-            this.setChanged();
+            // 标记数据改变
+            this.setDataSynchronized(true);
         }
+    }
+    
+    /**
+     * 标记数据已同步
+     */
+    private void setDataSynchronized(boolean changed) {
+        // 在NeoForge中，可以使用这个标记dirty
+        this.getEntityData().set(DATA_IS_PHYSICS_ACTIVE, this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE));
     }
     
     /**
@@ -452,15 +449,13 @@ public class PhysicsBlockEntity extends Entity {
     public void setBlockState(BlockPos localPos, BlockState state) {
         blockStates.put(localPos, state);
         calculateCollisionBoxes();
-        this.setChanged();
     }
     
     /**
      * 玩家左键攻击
      */
-    @Override
     public void attack(Player player) {
-        if (!level.isClientSide) {
+        if (!this.level().isClientSide) {
             // 查找点击的方块
             BlockPos clickedPos = findClickedBlockPos(player, 1.0f);
             if (clickedPos != null) {
@@ -517,6 +512,17 @@ public class PhysicsBlockEntity extends Entity {
         return rigidBodyId;
     }
     
+    /**
+     * 设置旋转刚体ID
+     */
+    public void setRotationalBodyId(UUID id) {
+        this.rotationalBodyId = id;
+    }
+    
+    public UUID getRotationalBodyId() {
+        return rotationalBodyId;
+    }
+    
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         // 保存方块状态
@@ -538,7 +544,7 @@ public class PhysicsBlockEntity extends Entity {
         }
         
         // 保存其他数据
-        tag.putBoolean("physicsActive", this.entityData.get(DATA_IS_PHYSICS_ACTIVE));
+        tag.putBoolean("physicsActive", this.getEntityData().get(DATA_IS_PHYSICS_ACTIVE));
     }
     
     @Override
@@ -568,7 +574,7 @@ public class PhysicsBlockEntity extends Entity {
         
         // 读取其他数据
         if (tag.contains("physicsActive")) {
-            this.entityData.set(DATA_IS_PHYSICS_ACTIVE, tag.getBoolean("physicsActive"));
+            this.getEntityData().set(DATA_IS_PHYSICS_ACTIVE, tag.getBoolean("physicsActive"));
         }
         
         // 重新计算碰撞体积
@@ -588,7 +594,6 @@ public class PhysicsBlockEntity extends Entity {
         return true;
     }
     
-    @Override
     public boolean mayInteract(Player player, Vec3 pos) {
         return true;
     }

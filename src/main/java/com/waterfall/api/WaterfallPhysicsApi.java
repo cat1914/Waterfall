@@ -106,4 +106,44 @@ public interface WaterfallPhysicsApi {
      * @return Net buoyancy value
      */
     float calculateNetBuoyancy(PhysicsBlockEntity entity);
+    
+    // ==================== Rotation API ====================
+    
+    /**
+     * Applies a torque to a physics entity (rotation).
+     * 
+     * @param entity The physics entity
+     * @param torqueX Torque around X axis (pitch)
+     * @param torqueY Torque around Y axis (yaw)
+     * @param torqueZ Torque around Z axis (roll)
+     */
+    void applyTorque(PhysicsBlockEntity entity, float torqueX, float torqueY, float torqueZ);
+    
+    /**
+     * Applies an impulse torque to a physics entity.
+     * 
+     * @param entity The physics entity
+     * @param impulseX Impulse torque around X axis
+     * @param impulseY Impulse torque around Y axis
+     * @param impulseZ Impulse torque around Z axis
+     */
+    void applyImpulseTorque(PhysicsBlockEntity entity, float impulseX, float impulseY, float impulseZ);
+    
+    /**
+     * Gets the current rotation (pitch, yaw, roll) of an entity.
+     * 
+     * @param entity The physics entity
+     * @return Array of [pitch, yaw, roll] in degrees
+     */
+    float[] getRotation(PhysicsBlockEntity entity);
+    
+    /**
+     * Sets the rotation of an entity.
+     * 
+     * @param entity The physics entity
+     * @param pitch Rotation around X axis (-90 to 90)
+     * @param yaw Rotation around Y axis (0 to 360)
+     * @param roll Rotation around Z axis (0 to 360)
+     */
+    void setRotation(PhysicsBlockEntity entity, float pitch, float yaw, float roll);
 }
