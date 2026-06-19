@@ -1,97 +1,91 @@
 package com.waterfall.physics;
 
+import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.waterfall.natives.HeavyLibrary;
-import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
 
-import java.util.ArrayList;
-import java.util.List;
+/**
+ * Wrapper around {@code heavy::PhysicsWorld}.
+ * <p>
+ * This object owns an {@code std::vector<PhysicsBody*>} internally, so its
+ * destructor MUST be called when it is no longer needed.
+ *
+ * @implNote Size: 64 bytes (verified with C {@code sizeof}).
+ */
+public class PhysicsWorld {
 
-public class PhysicsWorld implements AutoCloseable {
-    private static final Logger LOGGER = LogUtils.getLogger();
-    
-    private final Pointer nativeWorld;
-    private boolean ownsNative;
-    private final List<PhysicsBody> managedBodies;
-    private Force globalForce;
-    
+    public static final int SIZE = 64; // sizeof(heavy::PhysicsWorld)
+
+    private final Memory nativeMem;
+    private boolean destroyed = false;
+
     public PhysicsWorld() {
-        this.nativeWorld = HeavyLibrary.INSTANCE.heavy_PhysicsWorld_create();
-        this.ownsNative = true;
-        this.managedBodies = new ArrayList<>();
-        this.globalForce = new Force();
-        HeavyLibrary.INSTANCE.heavy_PhysicsWorld_setGlobalForce(nativeWorld, globalForce.getNativeForce());
-        LOGGER.info("PhysicsWorld created successfully");
+        nativeMem = new Memory(SIZE);
+        HeavyLibrary.INSTANCE._ZN5heavy12PhysicsWorldC1Ev(nativeMem);
     }
-    
-    PhysicsWorld(Pointer nativeWorld) {
-        this.nativeWorld = nativeWorld;
-        this.ownsNative = false;
-        this.managedBodies = new ArrayList<>();
-        this.globalForce = new Force(HeavyLibrary.INSTANCE.heavy_PhysicsWorld_getGlobalForce(nativeWorld));
+
+    public Pointer getPointer() {
+        return nativeMem;
     }
-    
-    Pointer getNativeWorld() {
-        return nativeWorld;
+
+    public synchronized void destroy() {
+        if (destroyed) return;
+        HeavyLibrary.INSTANCE._ZN5heavy12PhysicsWorldD1Ev(nativeMem);
+        destroyed = true;
     }
-    
-    public void addBody(PhysicsBody body) {
-        HeavyLibrary.INSTANCE.heavy_PhysicsWorld_addBody(nativeWorld, body.getNativeBody());
-        managedBodies.add(body);
-        LOGGER.debug("Added physics body to world, total bodies: {}", managedBodies.size());
-    }
-    
-    public void removeBody(PhysicsBody body) {
-        HeavyLibrary.INSTANCE.heavy_PhysicsWorld_removeBody(nativeWorld, body.getNativeBody());
-        managedBodies.remove(body);
-    }
-    
-    public void clearBodies() {
-        HeavyLibrary.INSTANCE.heavy_PhysicsWorld_clearBodies(nativeWorld);
-        managedBodies.clear();
-    }
-    
-    public Force getGlobalForce() {
-        return globalForce;
-    }
-    
-    public void setDeltaTime(float dt) {
-        HeavyLibrary.INSTANCE.heavy_PhysicsWorld_setDeltaTime(nativeWorld, dt);
-    }
-    
-    public float getDeltaTime() {
-        return HeavyLibrary.INSTANCE.heavy_PhysicsWorld_getDeltaTime(nativeWorld);
-    }
-    
-    public void applyGlobalForces() {
-        HeavyLibrary.INSTANCE.heavy_PhysicsWorld_applyGlobalForces(nativeWorld);
-    }
-    
-    public void update() {
-        HeavyLibrary.INSTANCE.heavy_PhysicsWorld_update(nativeWorld);
-    }
-    
-    public long getBodyCount() {
-        return HeavyLibrary.INSTANCE.heavy_PhysicsWorld_getBodyCount(nativeWorld);
-    }
-    
-    public List<PhysicsBody> getManagedBodies() {
-        return new ArrayList<>(managedBodies);
-    }
-    
-    @Override
+
+    /** Alias for {@link #destroy()}; matches caller expectations (WaterfallMod). */
     public void close() {
-        if (ownsNative && nativeWorld != null) {
-            HeavyLibrary.INSTANCE.heavy_PhysicsWorld_destroy(nativeWorld);
-            ownsNative = false;
-            LOGGER.info("PhysicsWorld destroyed");
-        }
+        destroy();
     }
-    
+
     @Override
     protected void finalize() throws Throwable {
-        close();
-        super.finalize();
+        try {
+            destroy();
+        } finally {
+            super.finalize();
+        }
+    }
+
+    // ---- Registration ----
+    public void addBody(PhysicsBody body) {
+        HeavyLibrary.INSTANCE._ZN5heavy12PhysicsWorld7addBodyEPNS_11PhysicsBodyE(
+                nativeMem, body.getPointer());
+    }
+
+    public void removeBody(PhysicsBody body) {
+        HeavyLibrary.INSTANCE._ZN5heavy12PhysicsWorld10removeBodyEPNS_11PhysicsBodyE(
+                nativeMem, body.getPointer());
+    }
+
+    public void clearBodies() {
+        HeavyLibrary.INSTANCE._ZN5heavy12PhysicsWorld11clearBodiesEv(nativeMem);
+    }
+
+    // ---- Simulation ----
+    public void setGlobalForce(Force force) {
+        HeavyLibrary.INSTANCE._ZN5heavy12PhysicsWorld14setGlobalForceERKNS_5ForceE(
+                nativeMem, force.getPointer());
+    }
+
+    public void setDeltaTime(float dt) {
+        HeavyLibrary.INSTANCE._ZN5heavy12PhysicsWorld12setDeltaTimeEf(nativeMem, dt);
+    }
+
+    public float getDeltaTime() {
+        return HeavyLibrary.INSTANCE._ZNK5heavy12PhysicsWorld12getDeltaTimeEv(nativeMem);
+    }
+
+    public void applyGlobalForces() {
+        HeavyLibrary.INSTANCE._ZN5heavy12PhysicsWorld17applyGlobalForcesEv(nativeMem);
+    }
+
+    public void update() {
+        HeavyLibrary.INSTANCE._ZN5heavy12PhysicsWorld6updateEv(nativeMem);
+    }
+
+    public long getBodyCount() {
+        return HeavyLibrary.INSTANCE._ZNK5heavy12PhysicsWorld12getBodyCountEv(nativeMem);
     }
 }

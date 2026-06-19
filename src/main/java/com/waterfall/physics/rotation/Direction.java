@@ -1,91 +1,83 @@
 package com.waterfall.physics.rotation;
 
+import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.waterfall.natives.DirectionLibrary;
+import com.waterfall.physics.Vector3;
 
 /**
- * 方向类 - 表示3D旋转（pitch, yaw, roll）
- * pitch: X轴旋转 (-90 to 90)
- * yaw: Y轴旋转 (0 to 360)
- * roll: Z轴旋转 (0 to 360)
+ * Wrapper around {@code direction::Direction}.
+ * <p>
+ * Represents a 3D rotation as Euler angles (pitch, yaw, roll).
+ * Memory layout: 12 bytes — three floats at offsets 0, 4, 8.
  */
-public class Direction implements AutoCloseable {
-    private final Pointer nativeDirection;
-    private boolean ownsNative;
-    
+public class Direction {
+
+    public static final int SIZE = 12; // sizeof(direction::Direction)
+
+    private static final int OFFSET_PITCH = 0;
+    private static final int OFFSET_YAW   = 4;
+    private static final int OFFSET_ROLL  = 8;
+
+    private final Memory nativeMem;
+
     public Direction() {
-        this.nativeDirection = DirectionLibrary.INSTANCE.direction_Direction_create();
-        this.ownsNative = true;
+        nativeMem = new Memory(SIZE);
+        DirectionLibrary.INSTANCE._ZN9direction9DirectionC1Ev(nativeMem);
     }
-    
-    Direction(Pointer nativeDirection) {
-        this.nativeDirection = nativeDirection;
-        this.ownsNative = false;
-    }
-    
+
     public Direction(float pitch, float yaw, float roll) {
-        this.nativeDirection = DirectionLibrary.INSTANCE.direction_Direction_create_with_params(pitch, yaw, roll);
-        this.ownsNative = true;
+        nativeMem = new Memory(SIZE);
+        DirectionLibrary.INSTANCE._ZN9direction9DirectionC1Efff(nativeMem, pitch, yaw, roll);
     }
-    
-    Pointer getNativeDirection() {
-        return nativeDirection;
+
+    public Pointer getPointer() {
+        return nativeMem;
     }
-    
+
     public void set(float pitch, float yaw, float roll) {
-        DirectionLibrary.INSTANCE.direction_Direction_set(nativeDirection, pitch, yaw, roll);
+        DirectionLibrary.INSTANCE._ZN9direction9Direction3setEfff(nativeMem, pitch, yaw, roll);
     }
-    
+
     public void setPitch(float pitch) {
-        set(pitch, getYaw(), getRoll());
+        DirectionLibrary.INSTANCE._ZN9direction9Direction8setPitchEf(nativeMem, pitch);
     }
-    
+
     public void setYaw(float yaw) {
-        set(getPitch(), yaw, getRoll());
+        DirectionLibrary.INSTANCE._ZN9direction9Direction6setYawEf(nativeMem, yaw);
     }
-    
+
     public void setRoll(float roll) {
-        set(getPitch(), getYaw(), roll);
+        DirectionLibrary.INSTANCE._ZN9direction9Direction7setRollEf(nativeMem, roll);
     }
-    
+
     public float getPitch() {
-        return DirectionLibrary.INSTANCE.direction_Direction_getPitch(nativeDirection);
+        return nativeMem.getFloat(OFFSET_PITCH);
     }
-    
+
     public float getYaw() {
-        return DirectionLibrary.INSTANCE.direction_Direction_getYaw(nativeDirection);
+        return nativeMem.getFloat(OFFSET_YAW);
     }
-    
+
     public float getRoll() {
-        return DirectionLibrary.INSTANCE.direction_Direction_getRoll(nativeDirection);
+        return nativeMem.getFloat(OFFSET_ROLL);
     }
-    
-    /**
-     * 获取所有旋转值
-     */
+
     public float[] getRotation() {
         return new float[]{getPitch(), getYaw(), getRoll()};
     }
-    
-    public void reset() {
-        DirectionLibrary.INSTANCE.direction_Direction_reset(nativeDirection);
-    }
-    
-    public static Direction zero() {
-        return new Direction(0, 0, 0);
-    }
-    
-    @Override
-    public void close() {
-        if (ownsNative && nativeDirection != null) {
-            DirectionLibrary.INSTANCE.direction_Direction_destroy(nativeDirection);
-            ownsNative = false;
+
+    public void applyAngularVelocity(Vector3 angularVec, float dt) {
+        try (Memory v = angularVec.toNative()) {
+            DirectionLibrary.INSTANCE._ZN9direction9Direction20applyAngularVelocityERKS0_f(nativeMem, v, dt);
         }
     }
-    
-    @Override
-    protected void finalize() throws Throwable {
-        close();
-        super.finalize();
+
+    public void reset() {
+        DirectionLibrary.INSTANCE._ZN9direction9Direction5resetEv(nativeMem);
+    }
+
+    public static Direction zero() {
+        return new Direction(0, 0, 0);
     }
 }

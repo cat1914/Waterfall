@@ -3,62 +3,102 @@ package com.waterfall.natives;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
-import com.sun.jna.Structure.FieldOrder;
-import com.sun.jna.ptr.IntByReference;
-import com.sun.jna.ptr.FloatByReference;
 
+/**
+ * Direct JNA binding to heavy's exported C++ symbols.
+ *
+ * On x86_64 Linux (System V ABI), C++ non-static member functions pass the
+ * {@code this} pointer as the first argument, identical to a regular C function.
+ * That means every method below has a {@link Pointer} as its first argument
+ * representing the object instance, and the symbol name is the Itanium C++
+ * mangled name produced by the compiler.
+ *
+ * Objects themselves are raw blocks of native memory (use {@code Memory} to
+ * allocate them; sizes are documented in each wrapper class). Constructors are
+ * called on pre-allocated memory. Trivial destructors need not be invoked for
+ * PhysicsBody / Force (they contain only scalars and small aggregates), but
+ * PhysicsWorld owns an {@code std::vector} so its destructor MUST be called.
+ */
 public interface HeavyLibrary extends Library {
-    
-    HeavyLibrary INSTANCE = Native.load("heavy", HeavyLibrary.class);
-    
-    Pointer heavy_PhysicsWorld_create();
-    void heavy_PhysicsWorld_destroy(Pointer world);
-    void heavy_PhysicsWorld_addBody(Pointer world, Pointer body);
-    void heavy_PhysicsWorld_removeBody(Pointer world, Pointer body);
-    void heavy_PhysicsWorld_clearBodies(Pointer world);
-    void heavy_PhysicsWorld_setGlobalForce(Pointer world, Pointer force);
-    Pointer heavy_PhysicsWorld_getGlobalForce(Pointer world);
-    void heavy_PhysicsWorld_setDeltaTime(Pointer world, float dt);
-    float heavy_PhysicsWorld_getDeltaTime(Pointer world);
-    void heavy_PhysicsWorld_applyGlobalForces(Pointer world);
-    void heavy_PhysicsWorld_update(Pointer world);
-    long heavy_PhysicsWorld_getBodyCount(Pointer world);
-    Pointer heavy_PhysicsWorld_getBody(Pointer world, long index);
-    
-    Pointer heavy_PhysicsBody_create();
-    Pointer heavy_PhysicsBody_create_with_params(float x, float y, float z, float mass);
-    void heavy_PhysicsBody_destroy(Pointer body);
-    void heavy_PhysicsBody_applyForce(Pointer body, Pointer force);
-    void heavy_PhysicsBody_applyImpulse(Pointer body, Pointer impulse);
-    void heavy_PhysicsBody_applyOscillation(Pointer body, Pointer direction, float initialMagnitude);
-    void heavy_PhysicsBody_update(Pointer body, float deltaTime);
-    void heavy_PhysicsBody_setStatic(Pointer body, boolean value);
-    boolean heavy_PhysicsBody_getStatic(Pointer body);
-    void heavy_PhysicsBody_reset(Pointer body);
-    
-    Pointer heavy_Vector3_create();
-    Pointer heavy_Vector3_create_with_params(float x, float y, float z);
-    void heavy_Vector3_destroy(Pointer vec);
-    void heavy_Vector3_set(Pointer vec, float x, float y, float z);
-    float heavy_Vector3_getX(Pointer vec);
-    float heavy_Vector3_getY(Pointer vec);
-    float heavy_Vector3_getZ(Pointer vec);
-    
-    Pointer heavy_Force_create();
-    void heavy_Force_destroy(Pointer force);
-    Pointer heavy_Force_calculateNetForce(Pointer force);
-    void heavy_Force_setGravity(Pointer force, Pointer vec);
-    void heavy_Force_setGravity_with_params(Pointer force, float x, float y, float z);
-    void heavy_Force_setLift(Pointer force, Pointer vec);
-    void heavy_Force_setLift_with_params(Pointer force, float x, float y, float z);
-    void heavy_Force_setThrust(Pointer force, Pointer vec);
-    void heavy_Force_setThrust_with_params(Pointer force, float x, float y, float z);
-    void heavy_Force_addThrustForward(Pointer force, float magnitude);
-    void heavy_Force_addThrustBackward(Pointer force, float magnitude);
-    void heavy_Force_addThrustLeft(Pointer force, float magnitude);
-    void heavy_Force_addThrustRight(Pointer force, float magnitude);
-    void heavy_Force_addThrustUp(Pointer force, float magnitude);
-    void heavy_Force_addThrustDown(Pointer force, float magnitude);
-    void heavy_Force_reset(Pointer force);
+
+    HeavyLibrary INSTANCE = Native.load("heavy-0.0.1", HeavyLibrary.class);
+
+    // =========================================================================
+    // heavy::PhysicsBody
+    // =========================================================================
+    void _ZN5heavy11PhysicsBodyC1Ev(Pointer body);
+
+    void _ZN5heavy11PhysicsBodyC1ERKNS_7Vector3Ef(Pointer body, Pointer vec, float mass);
+
+    void _ZN5heavy11PhysicsBody10applyForceERKNS_7Vector3E(Pointer body, Pointer vec);
+
+    void _ZN5heavy11PhysicsBody12applyImpulseERKNS_7Vector3E(Pointer body, Pointer vec);
+
+    void _ZN5heavy11PhysicsBody16applyOscillationERKNS_7Vector3Ef(Pointer body, Pointer vec, float magnitude);
+
+    void _ZN5heavy11PhysicsBody6updateEf(Pointer body, float dt);
+
+    void _ZN5heavy11PhysicsBody9setStaticEb(Pointer body, byte value);
+
+    byte _ZNK5heavy11PhysicsBody9getStaticEv(Pointer body);
+
+    void _ZN5heavy11PhysicsBody5resetEv(Pointer body);
+
+    // =========================================================================
+    // heavy::Force
+    // =========================================================================
+    void _ZN5heavy5ForceC1Ev(Pointer force);
+
+    void _ZN5heavy5Force10setGravityERKNS_7Vector3E(Pointer force, Pointer vec);
+
+    void _ZN5heavy5Force10setGravityEfff(Pointer force, float x, float y, float z);
+
+    void _ZN5heavy5Force7setLiftERKNS_7Vector3E(Pointer force, Pointer vec);
+
+    void _ZN5heavy5Force7setLiftEfff(Pointer force, float x, float y, float z);
+
+    void _ZN5heavy5Force9setThrustERKNS_7Vector3E(Pointer force, Pointer vec);
+
+    void _ZN5heavy5Force9setThrustEfff(Pointer force, float x, float y, float z);
+
+    void _ZN5heavy5Force16addThrustForwardEf(Pointer force, float magnitude);
+
+    void _ZN5heavy5Force17addThrustBackwardEf(Pointer force, float magnitude);
+
+    void _ZN5heavy5Force13addThrustLeftEf(Pointer force, float magnitude);
+
+    void _ZN5heavy5Force14addThrustRightEf(Pointer force, float magnitude);
+
+    void _ZN5heavy5Force11addThrustUpEf(Pointer force, float magnitude);
+
+    void _ZN5heavy5Force13addThrustDownEf(Pointer force, float magnitude);
+
+    void _ZN5heavy5Force5resetEv(Pointer force);
+
+    // =========================================================================
+    // heavy::PhysicsWorld
+    // =========================================================================
+    void _ZN5heavy12PhysicsWorldC1Ev(Pointer world);
+
+    void _ZN5heavy12PhysicsWorldD1Ev(Pointer world);
+
+    void _ZN5heavy12PhysicsWorld7addBodyEPNS_11PhysicsBodyE(Pointer world, Pointer body);
+
+    void _ZN5heavy12PhysicsWorld10removeBodyEPNS_11PhysicsBodyE(Pointer world, Pointer body);
+
+    void _ZN5heavy12PhysicsWorld11clearBodiesEv(Pointer world);
+
+    void _ZN5heavy12PhysicsWorld14setGlobalForceERKNS_5ForceE(Pointer world, Pointer force);
+
+    void _ZN5heavy12PhysicsWorld12setDeltaTimeEf(Pointer world, float dt);
+
+    float _ZNK5heavy12PhysicsWorld12getDeltaTimeEv(Pointer world);
+
+    void _ZN5heavy12PhysicsWorld17applyGlobalForcesEv(Pointer world);
+
+    void _ZN5heavy12PhysicsWorld6updateEv(Pointer world);
+
+    long _ZNK5heavy12PhysicsWorld12getBodyCountEv(Pointer world);
+
+    Pointer _ZNK5heavy12PhysicsWorld7getBodyEm(Pointer world, long index);
 }
