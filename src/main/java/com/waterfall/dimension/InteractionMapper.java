@@ -111,8 +111,10 @@ public class InteractionMapper {
             false
         );
         
-        InteractionResult result = state.use(
-            player.level() instanceof ServerLevel ? player : player,
+        InteractionResult result = state.getBlock().use(
+            state,
+            physicsLevel,
+            physicsPos,
             player,
             hand,
             hitResult

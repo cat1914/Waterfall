@@ -343,8 +343,10 @@ public class PhysicsBlockEntity extends Entity {
             false
         );
 
-        InteractionResult result = state.use(
-            player.level() instanceof ServerLevel ? player : player,
+        InteractionResult result = state.getBlock().use(
+            state,
+            physicsLevel,
+            physicsPos,
             player,
             hand,
             hit
