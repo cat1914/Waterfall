@@ -8,64 +8,124 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.Vec3;
+
 import com.waterfall.WaterfallMod;
 import com.waterfall.api.WaterfallPhysicsApi;
+import com.waterfall.dimension.PhysicsDimension;
+import com.waterfall.dimension.StructureCopier;
+import com.waterfall.dimension.StructureCopier.StructureCopyResult;
 import com.waterfall.entity.PhysicsBlockEntity;
 import com.waterfall.entity.PhysicsEntityType;
+import com.waterfall.physics.MaterialPhysics;
 import com.waterfall.physics.rigidbody.RigidBody;
 import com.waterfall.physics.rigidbody.RigidBodyId;
 import com.waterfall.physics.rigidbody.RigidBodyManager;
 import com.waterfall.physics.rotation.RotationalBody;
 import com.waterfall.physics.rotation.RotationalBodyManager;
+
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * Implementation of the Waterfall Physics API
+ * WaterfallPhysicsApi 实现 - 基于物理维度映射系统
+ * 
+ * 创建物理结构的新流程：
+ * 1. 收集方块数据
+ * 2. 将方块复制到物理维度（同时从主世界移除）
+ * 3. 在物理维度创建 RigidBody 进行物理计算
+ * 4. 在主世界创建 PhysicsBlockEntity 作为代理显示
+ * 5. 注册代理实体到 InteractionMapper
  */
 public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
 
     @Override
     public PhysicsBlockEntity createPhysicsStructure(Level level, Vec3 position, Map<BlockPos, BlockState> blocks) {
-        if (!(level instanceof ServerLevel serverLevel)) {
+        if (!(level instanceof ServerLevel mainLevel)) {
             WaterfallMod.LOGGER.error("Cannot create physics structure on client!");
             return null;
         }
 
-        try {
-            // Create RigidBody
-            RigidBody body = RigidBodyManager.getInstance().createRigidBody(serverLevel);
-            
-            // Create RotationalBody
-            RotationalBody rotBody = RotationalBodyManager.getInstance().createRotationalBody(serverLevel, 1.0f);
-            
-            // Add all blocks
-            for (Map.Entry<BlockPos, BlockState> entry : blocks.entrySet()) {
-                body.addBlock(entry.getKey(), entry.getValue());
-            }
+        // 获取物理维度
+        ServerLevel physicsLevel = PhysicsDimension.getLevel(mainLevel.getServer());
+        if (physicsLevel == null) {
+            WaterfallMod.LOGGER.error("Physics dimension not available! Make sure it's registered properly.");
+            return null;
+        }
 
-            // Create PhysicsBlockEntity
-            PhysicsBlockEntity entity = new PhysicsBlockEntity(
-                PhysicsEntityType.PHYSICS_BLOCK.get(),
-                serverLevel
+        try {
+            // 步骤1：将方块复制到物理维度
+            StructureCopyResult copyResult = StructureCopier.copyStructureToPhysicsDimension(
+                mainLevel, physicsLevel, position, blocks
             );
             
-            // Configure entity
-            entity.setPos(position.x, position.y, position.z);
-            entity.setRigidBodyId(body.getId());
-            entity.getEntityData().set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, true);
-            entity.getEntityData().set(PhysicsBlockEntity.DATA_LIGHT_BLOCKS, body.getLightBlockCount());
-            entity.getEntityData().set(PhysicsBlockEntity.DATA_HEAVY_BLOCKS, body.getHeavyBlockCount());
+            if (copyResult == null || copyResult.blockCount == 0) {
+                WaterfallMod.LOGGER.error("Failed to copy structure to physics dimension");
+                return null;
+            }
 
-            // Spawn in world
-            serverLevel.addFreshEntity(entity);
+            // 步骤2：在物理维度创建刚体
+            RigidBody body = RigidBodyManager.getInstance().createRigidBody(physicsLevel);
             
-            WaterfallMod.LOGGER.info("Created physics structure at {} with {} blocks", 
-                position, blocks.size());
-                
+            // 收集轻/重质方块数量
+            int lightBlocks = 0;
+            int heavyBlocks = 0;
+            for (BlockPos localPos : copyResult.localToWorldMap.keySet()) {
+                BlockState state = blocks.get(localPos);
+                if (state != null) {
+                    if (MaterialPhysics.isLightMaterial(state)) {
+                        lightBlocks++;
+                        body.addBlock(localPos, state);
+                    } else if (MaterialPhysics.isHeavyMaterial(state)) {
+                        heavyBlocks++;
+                        body.addBlock(localPos, state);
+                    } else {
+                        body.addBlock(localPos, state);
+                    }
+                }
+            }
+            
+            // 设置刚体初始位置
+            body.getPhysicsBody().setPosition(new com.waterfall.physics.Vector3(
+                (float) position.x, (float) position.y, (float) position.z
+            ));
+
+            // 步骤3：创建旋转刚体
+            RotationalBody rotBody = RotationalBodyManager.getInstance().createRotationalBody(
+                physicsLevel, body.getMass()
+            );
+
+            // 步骤4：在主世界创建代理实体
+            PhysicsBlockEntity entity = new PhysicsBlockEntity(
+                PhysicsEntityType.PHYSICS_BLOCK.get(), mainLevel
+            );
+            
+            entity.setPos(position.x, position.y, position.z);
+            
+            Set<BlockPos> localPositions = copyResult.localToWorldMap.keySet();
+            entity.initializeFromPhysicsDimension(
+                copyResult.structureId,
+                copyResult.physicsOrigin,
+                new HashSet<>(localPositions),
+                copyResult.localToWorldMap,
+                body.getId(),
+                lightBlocks,
+                heavyBlocks
+            );
+            entity.setRotationalBodyId(rotBody.getId());
+
+            // 步骤5：生成到主世界
+            mainLevel.addFreshEntity(entity);
+
+            WaterfallMod.LOGGER.info(
+                "Created physics structure #{} at {} with {} blocks (light:{}, heavy:{})",
+                copyResult.structureId, position, copyResult.blockCount, lightBlocks, heavyBlocks
+            );
+
             return entity;
-            
+
         } catch (Exception e) {
             WaterfallMod.LOGGER.error("Failed to create physics structure", e);
             return null;
@@ -74,40 +134,32 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
 
     @Override
     public PhysicsBlockEntity createFromWorldArea(Level level, Vec3 center, BlockPos min, BlockPos max, boolean consumeBlocks) {
-        if (!(level instanceof ServerLevel serverLevel)) {
+        if (!(level instanceof ServerLevel mainLevel)) {
             WaterfallMod.LOGGER.error("Cannot create physics structure on client!");
             return null;
         }
 
-        // Collect blocks from world
+        // 收集范围内的方块
         Map<BlockPos, BlockState> blocks = new HashMap<>();
-        BlockPos centerPos = new BlockPos((int)center.x, (int)center.y, (int)center.z);
+        BlockPos centerPos = new BlockPos((int) center.x, (int) center.y, (int) center.z);
 
         for (int x = min.getX(); x <= max.getX(); x++) {
             for (int y = min.getY(); y <= max.getY(); y++) {
                 for (int z = min.getZ(); z <= max.getZ(); z++) {
                     BlockPos worldPos = new BlockPos(x, y, z);
                     BlockState state = level.getBlockState(worldPos);
-                    
                     if (!state.isAir()) {
-                        // Calculate local position relative to center
                         BlockPos localPos = new BlockPos(
                             x - centerPos.getX(),
                             y - centerPos.getY(),
                             z - centerPos.getZ()
                         );
                         blocks.put(localPos, state);
-                        
-                        // Optionally consume blocks
-                        if (consumeBlocks) {
-                            level.setBlock(worldPos, Blocks.AIR.defaultBlockState(), 3);
-                        }
                     }
                 }
             }
         }
 
-        // Create physics structure
         return createPhysicsStructure(level, center, blocks);
     }
 
@@ -115,7 +167,6 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
     public void activatePhysics(PhysicsBlockEntity entity) {
         if (entity != null && entity.level() instanceof ServerLevel) {
             entity.getEntityData().set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, true);
-            
             RigidBodyId id = entity.getRigidBodyId();
             if (id != null) {
                 RigidBody body = RigidBodyManager.getInstance().getRigidBody(id);
@@ -130,7 +181,6 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
     public void deactivatePhysics(PhysicsBlockEntity entity) {
         if (entity != null) {
             entity.getEntityData().set(PhysicsBlockEntity.DATA_IS_PHYSICS_ACTIVE, false);
-            
             RigidBodyId id = entity.getRigidBodyId();
             if (id != null) {
                 RigidBody body = RigidBodyManager.getInstance().getRigidBody(id);
@@ -149,14 +199,11 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
                 RigidBody body = RigidBodyManager.getInstance().getRigidBody(id);
                 if (body != null && body.isActive()) {
                     com.waterfall.physics.Vector3 impulse = new com.waterfall.physics.Vector3(
-                        (float)force.x,
-                        (float)force.y,
-                        (float)force.z
+                        (float) force.x, (float) force.y, (float) force.z
                     );
                     body.getPhysicsBody().applyImpulse(impulse);
                 }
             } else {
-                // Fallback to entity motion if no rigid body
                 entity.setDeltaMovement(entity.getDeltaMovement().add(force));
             }
         }
@@ -172,45 +219,42 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
     @Override
     public void destroyPhysicsStructure(PhysicsBlockEntity entity, boolean restoreBlocks) {
         if (entity == null) return;
+
+        ServerLevel mainLevel = entity.level() instanceof ServerLevel ? (ServerLevel) entity.level() : null;
+        ServerLevel physicsLevel = PhysicsDimension.getCachedLevel();
         
-        if (!(entity.level() instanceof ServerLevel serverLevel)) {
-            entity.discard();
-            return;
+        // 清理物理维度中的方块
+        if (physicsLevel != null && entity.getPhysicsOrigin() != null) {
+            for (BlockPos localPos : entity.getLocalBlockPositions()) {
+                BlockPos physicsPos = entity.getPhysicsOrigin().offset(localPos);
+                BlockState currentState = physicsLevel.getBlockState(physicsPos);
+                
+                // 可选：恢复到主世界
+                if (restoreBlocks && mainLevel != null) {
+                    BlockPos worldPos = entity.getLocalToWorldMap().get(localPos);
+                    if (worldPos != null && !currentState.isAir()) {
+                        mainLevel.setBlock(worldPos, currentState, 3);
+                    }
+                }
+                
+                // 从物理维度清除
+                physicsLevel.setBlock(physicsPos, Blocks.AIR.defaultBlockState(), 3);
+            }
         }
-        
-        // Cleanup rigid body
+
+        // 清理刚体
         RigidBodyId id = entity.getRigidBodyId();
         if (id != null) {
             RigidBody body = RigidBodyManager.getInstance().getRigidBody(id);
             if (body != null) {
-                RigidBodyManager.getInstance().removeRigidBody(id, serverLevel);
+                RigidBodyManager.getInstance().destroyRigidBody(id);
             }
         }
-        
-        // Optionally restore blocks
-        if (restoreBlocks) {
-            Vec3 entityPos = entity.position();
-            BlockPos centerPos = new BlockPos((int)entityPos.x, (int)entityPos.y, (int)entityPos.z);
-            
-            Map<BlockPos, BlockState> blockStates = entity.getAllBlockStates();
-            for (Map.Entry<BlockPos, BlockState> entry : blockStates.entrySet()) {
-                BlockPos localPos = entry.getKey();
-                BlockState state = entry.getValue();
-                
-                BlockPos worldPos = new BlockPos(
-                    centerPos.getX() + localPos.getX(),
-                    centerPos.getY() + localPos.getY(),
-                    centerPos.getZ() + localPos.getZ()
-                );
-                
-                serverLevel.setBlock(worldPos, state, 3);
-            }
-        }
-        
-        // Remove entity
+
+        // 移除实体
         entity.discard();
-        
-        WaterfallMod.LOGGER.info("Destroyed physics structure at {}", entity.position());
+
+        WaterfallMod.LOGGER.info("Destroyed physics structure #{}", entity.getStructureId());
     }
 
     @Override
@@ -241,11 +285,15 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
             }
         }
         
-        // Fallback check
-        Vec3 pos = entity.position();
-        BlockPos blockPos = new BlockPos((int)pos.x, (int)pos.y, (int)pos.z);
-        FluidState fluidState = entity.level().getFluidState(blockPos);
-        return fluidState.is(Fluids.WATER) || fluidState.is(Fluids.FLOWING_WATER);
+        // Fallback: check in physics dimension
+        ServerLevel physicsLevel = PhysicsDimension.getCachedLevel();
+        if (physicsLevel != null) {
+            Vec3 pos = entity.position();
+            BlockPos blockPos = new BlockPos((int) pos.x, (int) pos.y, (int) pos.z);
+            FluidState fluid = physicsLevel.getFluidState(blockPos);
+            return fluid.is(Fluids.WATER) || fluid.is(Fluids.FLOWING_WATER);
+        }
+        return false;
     }
 
     @Override
@@ -260,14 +308,13 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
             }
         }
         
-        // Manual calculation
         int light = getLightBlockCount(entity);
         int heavy = getHeavyBlockCount(entity);
         return light - (heavy * 0.25f);
     }
-    
-    // ==================== Rotation API ====================
-    
+
+    // ============ Rotation API ============
+
     @Override
     public void applyTorque(PhysicsBlockEntity entity, float torqueX, float torqueY, float torqueZ) {
         if (entity == null) return;
@@ -281,7 +328,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
             }
         }
     }
-    
+
     @Override
     public void applyImpulseTorque(PhysicsBlockEntity entity, float impulseX, float impulseY, float impulseZ) {
         if (entity == null) return;
@@ -295,7 +342,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
             }
         }
     }
-    
+
     @Override
     public float[] getRotation(PhysicsBlockEntity entity) {
         if (entity == null) return new float[]{0, 0, 0};
@@ -309,7 +356,7 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
         }
         return new float[]{0, 0, 0};
     }
-    
+
     @Override
     public void setRotation(PhysicsBlockEntity entity, float pitch, float yaw, float roll) {
         if (entity == null) return;
