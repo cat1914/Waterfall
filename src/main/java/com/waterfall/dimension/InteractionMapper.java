@@ -111,8 +111,7 @@ public class InteractionMapper {
             false
         );
         
-        // Use Block.use() instead of BlockState.use() for correct signature
-        InteractionResult result = state.getBlock().use(state, physicsLevel, physicsPos, player, hand, hitResult);
+        InteractionResult result = state.use(physicsLevel, player, hand, hitResult);
         
         return result;
     }
