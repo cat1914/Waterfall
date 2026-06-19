@@ -291,7 +291,7 @@ public class PhysicsBlockEntity extends Entity {
             hitPos, net.minecraft.core.Direction.UP, physicsPos, false
         );
 
-        return state.use(physicsLevel, player, hand, hit);
+        return state.use((Level) physicsLevel, player, hand, hit);
     }
 
     private void togglePhysicsState(Player player) {
