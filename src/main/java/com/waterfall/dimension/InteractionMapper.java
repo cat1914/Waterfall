@@ -111,13 +111,8 @@ public class InteractionMapper {
             false
         );
         
-        // 使用 BlockState#use 在物理维度执行原版方块交互
-        InteractionResult result = state.use(
-            physicsLevel,
-            player,
-            hand,
-            hitResult
-        );
+        // NeoForge 21.1.231 / MojangMappings: BlockState.use(Level, BlockPos, Player, InteractionHand, BlockHitResult)
+        InteractionResult result = state.use(physicsLevel, physicsPos, player, hand, hitResult);
         
         return result;
     }
