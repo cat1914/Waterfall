@@ -111,8 +111,8 @@ public class InteractionMapper {
             false
         );
         
-        // NeoForge 21.1.231 / MojangMappings: BlockState.use(Level, BlockPos, Player, InteractionHand, BlockHitResult)
-        InteractionResult result = state.use(physicsLevel, physicsPos, player, hand, hitResult);
+        // Use Block.use() instead of BlockState.use() for correct signature
+        InteractionResult result = state.getBlock().use(state, physicsLevel, physicsPos, player, hand, hitResult);
         
         return result;
     }

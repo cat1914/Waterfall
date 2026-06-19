@@ -111,6 +111,11 @@ public class PhysicsBody {
         return nativeMem.getFloat(OFFSET_MASS);
     }
 
+    /** Directly overwrite mass (used after recalculating structure mass). */
+    public void setMass(float mass) {
+        nativeMem.setFloat(OFFSET_MASS, mass);
+    }
+
     /** Directly overwrite position (used to sync entity position into heavy). */
     public void setPosition(Vector3 p) {
         Pointer slot = nativeMem.share(OFFSET_POSITION);
