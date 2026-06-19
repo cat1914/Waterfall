@@ -191,6 +191,9 @@ public class WaterfallPhysicsApiImpl implements WaterfallPhysicsApi {
             }
         }
 
+        // 从 heavy PhysicsWorld 中移除 body
+        WaterfallMod.removePhysicsBodyFromWorld(entity.getHeavyBody());
+
         // 移除主世界实体
         entity.discard();
         WaterfallMod.LOGGER.info("Destroyed physics structure at {}", entity.position());
