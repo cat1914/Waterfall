@@ -111,10 +111,9 @@ public class InteractionMapper {
             false
         );
         
-        InteractionResult result = state.getBlock().use(
-            state,
+        // 使用 BlockState#use 在物理维度执行原版方块交互
+        InteractionResult result = state.use(
             physicsLevel,
-            physicsPos,
             player,
             hand,
             hitResult
