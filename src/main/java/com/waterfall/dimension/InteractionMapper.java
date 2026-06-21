@@ -111,7 +111,7 @@ public class InteractionMapper {
             false
         );
         
-        InteractionResult result = state.getBlock().use(state, physicsLevel, player, hand, hitResult);
+        InteractionResult result = state.getBlock().use(state, physicsLevel, physicsPos, player, hand, hitResult);
         
         return result;
     }
