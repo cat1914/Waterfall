@@ -291,7 +291,17 @@ public class PhysicsBlockEntity extends Entity {
             hitPos, net.minecraft.core.Direction.UP, physicsPos, false
         );
 
-        return state.use(physicsLevel, player, hand, hit);
+        // MC 1.21.1: block interaction is split into useItemOn (held item) and
+        // useWithoutItem (empty hand, e.g. lever/chest toggle). Replicate the
+        // vanilla single-hand pipeline: try item interaction first, then fall
+        // back to the default empty-hand interaction on PASS.
+        net.minecraft.world.item.ItemStack heldItem = player.getItemInHand(hand);
+        net.minecraft.world.ItemInteractionResult itemResult =
+                state.useItemOn(heldItem, physicsLevel, player, hand, hit);
+        if (itemResult == net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION) {
+            return state.useWithoutItem(physicsLevel, player, hit);
+        }
+        return itemResult.result();
     }
 
     private void togglePhysicsState(Player player) {
