@@ -1,0 +1,3 @@
+[submodule "heavy"]
+	path = heavy
+	url = https://github.com/cat1914/heavy.git
