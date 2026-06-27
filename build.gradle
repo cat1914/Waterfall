@@ -118,10 +118,15 @@ configurations {
 }
 
 dependencies {
-    // JNA for native library loading
-    implementation 'net.java.dev.jna:jna:5.14.0'
-    implementation 'net.java.dev.jna:jna-platform:5.14.0'
-    
+    // JNA for native library loading — bundled into the mod jar via jarJar so
+    // the dependency is available at runtime without a separate download.
+    jarJar(implementation('net.java.dev.jna:jna:5.14.0')) {
+        version { strictly '[5.14.0,6.0.0)'; prefer '5.14.0' }
+    }
+    jarJar(implementation('net.java.dev.jna:jna-platform:5.14.0')) {
+        version { strictly '[5.14.0,6.0.0)'; prefer '5.14.0' }
+    }
+
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
@@ -185,6 +190,17 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+// Exclude the standalone smoke-test class from the published mod jar.
+// HeavySmokeTest has a main() entry point and is only meant for manual
+// verification of the native library binding, not for distribution.
+processResources {
+    exclude 'com/waterfall/natives/HeavySmokeTest.class'
+}
+jar {
+    exclude 'com/waterfall/natives/HeavySmokeTest.class'
+    exclude 'com/waterfall/natives/HeavySmokeTest*.class'
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
