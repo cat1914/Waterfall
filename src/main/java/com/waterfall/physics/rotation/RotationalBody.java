@@ -1,6 +1,5 @@
 package com.waterfall.physics.rotation;
 
-import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.waterfall.natives.DirectionLibrary;
 import com.waterfall.physics.Vector3;
@@ -8,114 +7,104 @@ import com.waterfall.physics.Vector3;
 /**
  * Wrapper around {@code direction::RotationalBody}.
  * <p>
- * Memory layout (approximate):
- * <pre>
- *    0 .. 11  Direction (pitch, yaw, roll)
- *   12 .. 23  Vector3 angularVelocity
- *   24 .. 35  Vector3 angularAcceleration
- *   36 .. 39  float momentOfInertia
- *   40 .. 43  bool isStatic (padded to 4 bytes)
- *   44 .. 55  Vector3 oscillationAxis
- *   56 .. 59  float oscillationMagnitude
- *   60 .. 63  bool isOscillating (padded to 4 bytes)
- *   64 .. 71  padding to 72
- * </pre>
+ * Backed by a native handle allocated via the C API.
  */
 public class RotationalBody {
 
-    public static final int SIZE = 72; // sizeof(direction::RotationalBody)
-
-    private static final int OFFSET_DIR   = 0;   // Direction at start
-    private static final int OFFSET_MOI   = 36;  // momentOfInertia
-
-    private final Memory nativeMem;
+    private Pointer nativePtr;
+    private boolean owned;
 
     public RotationalBody() {
-        nativeMem = new Memory(SIZE);
-        DirectionLibrary.INSTANCE._ZN9direction14RotationalBodyC1Ev(nativeMem);
+        nativePtr = DirectionLibrary.INSTANCE.direction_RotationalBody_create();
+        owned = true;
     }
 
     public RotationalBody(float momentOfInertia) {
-        nativeMem = new Memory(SIZE);
-        DirectionLibrary.INSTANCE._ZN9direction14RotationalBodyC1Ef(nativeMem, momentOfInertia);
+        nativePtr = DirectionLibrary.INSTANCE.direction_RotationalBody_create_with_params(momentOfInertia);
+        owned = true;
+    }
+
+    /** Wrap an existing native pointer without taking ownership. */
+    RotationalBody(Pointer ptr) {
+        nativePtr = ptr;
+        owned = false;
     }
 
     public Pointer getPointer() {
-        return nativeMem;
-    }
-
-    public Direction getDirection() {
-        // View the first 12 bytes as a Direction. We construct a Java-side copy
-        // by reading the memory contents directly.
-        Pointer dirView = nativeMem.share(OFFSET_DIR);
-        Direction d = new Direction();
-        // Copy from our memory into d. The Direction getters read via member
-        // functions, which operate on d's internal memory. So we re-initialize
-        // d using C++ constructor semantics by reading offsets and calling set.
-        float pitch = dirView.getFloat(0);
-        float yaw   = dirView.getFloat(4);
-        float roll  = dirView.getFloat(8);
-        d.set(pitch, yaw, roll);
-        return d;
+        return nativePtr;
     }
 
     public float getPitch() {
-        return nativeMem.getFloat(0);
+        return DirectionLibrary.INSTANCE.direction_RotationalBody_getPitch(nativePtr);
     }
 
     public float getYaw() {
-        return nativeMem.getFloat(4);
+        return DirectionLibrary.INSTANCE.direction_RotationalBody_getYaw(nativePtr);
     }
 
     public float getRoll() {
-        return nativeMem.getFloat(8);
+        return DirectionLibrary.INSTANCE.direction_RotationalBody_getRoll(nativePtr);
     }
 
-    public float getMomentOfInertia() {
-        return nativeMem.getFloat(OFFSET_MOI);
+    public Rotation getRotation() {
+        return new Rotation(getPitch(), getYaw(), getRoll());
     }
 
     public void applyTorque(Vector3 torque) {
-        try (Memory v = torque.toNative()) {
-            DirectionLibrary.INSTANCE._ZN9direction14RotationalBody11applyTorqueERKNS_7Vector3E(nativeMem, v);
-        }
+        Pointer v = DirectionLibrary.INSTANCE.direction_Vector3_create_with_params(
+                torque.getX(), torque.getY(), torque.getZ());
+        DirectionLibrary.INSTANCE.direction_RotationalBody_applyTorque(nativePtr, v);
+        DirectionLibrary.INSTANCE.direction_Vector3_destroy(v);
     }
 
     public void applyImpulseTorque(Vector3 impulseTorque) {
-        try (Memory v = impulseTorque.toNative()) {
-            DirectionLibrary.INSTANCE._ZN9direction14RotationalBody18applyImpulseTorqueERKNS_7Vector3E(nativeMem, v);
-        }
+        Pointer v = DirectionLibrary.INSTANCE.direction_Vector3_create_with_params(
+                impulseTorque.getX(), impulseTorque.getY(), impulseTorque.getZ());
+        DirectionLibrary.INSTANCE.direction_RotationalBody_applyImpulseTorque(nativePtr, v);
+        DirectionLibrary.INSTANCE.direction_Vector3_destroy(v);
     }
 
     public void applyOscillation(Vector3 axis, float initialMagnitude) {
-        try (Memory v = axis.toNative()) {
-            DirectionLibrary.INSTANCE._ZN9direction14RotationalBody16applyOscillationERKNS_7Vector3Ef(nativeMem, v, initialMagnitude);
-        }
+        Pointer v = DirectionLibrary.INSTANCE.direction_Vector3_create_with_params(
+                axis.getX(), axis.getY(), axis.getZ());
+        DirectionLibrary.INSTANCE.direction_RotationalBody_applyOscillation(nativePtr, v, initialMagnitude);
+        DirectionLibrary.INSTANCE.direction_Vector3_destroy(v);
     }
 
     public void update(float dt) {
-        DirectionLibrary.INSTANCE._ZN9direction14RotationalBody6updateEf(nativeMem, dt);
+        DirectionLibrary.INSTANCE.direction_RotationalBody_update(nativePtr, dt);
     }
 
     public void setStatic(boolean value) {
-        DirectionLibrary.INSTANCE._ZN9direction14RotationalBody9setStaticEb(nativeMem, (byte)(value ? 1 : 0));
+        DirectionLibrary.INSTANCE.direction_RotationalBody_setStatic(nativePtr, value ? 1 : 0);
     }
 
     public boolean isStatic() {
-        return DirectionLibrary.INSTANCE._ZNK9direction14RotationalBody9getStaticEv(nativeMem) != 0;
+        return DirectionLibrary.INSTANCE.direction_RotationalBody_getStatic(nativePtr) != 0;
     }
 
     public void reset() {
-        DirectionLibrary.INSTANCE._ZN9direction14RotationalBody5resetEv(nativeMem);
+        DirectionLibrary.INSTANCE.direction_RotationalBody_reset(nativePtr);
     }
 
-    /** No-op placeholder — kept for API compatibility. */
+    public synchronized void destroy() {
+        if (owned && nativePtr != null) {
+            DirectionLibrary.INSTANCE.direction_RotationalBody_destroy(nativePtr);
+            nativePtr = null;
+            owned = false;
+        }
+    }
+
     public void close() {
+        destroy();
     }
 
     @Override
     protected void finalize() throws Throwable {
-        close();
-        super.finalize();
+        try {
+            destroy();
+        } finally {
+            super.finalize();
+        }
     }
 }
