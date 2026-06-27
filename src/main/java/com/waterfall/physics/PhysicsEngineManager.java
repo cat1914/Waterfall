@@ -130,9 +130,9 @@ public class PhysicsEngineManager {
             }
         }
         
-        body.applyForce(new Vector3(force.getNativeForce()));
+        body.applyForce(force.calculateNetForce());
     }
-    
+
     private void updateWaterPhysics(PhysicsBody body, Level level, Vec3 position) {
         Force force = new Force();
         force.setGravity(0, -WATER_GRAVITY, 0);
@@ -146,7 +146,7 @@ public class PhysicsEngineManager {
         float drag = (float)(WATER_DRAG * velocity.length());
         force.addThrustDown(drag);
         
-        body.applyForce(new Vector3(force.getNativeForce()));
+        body.applyForce(force.calculateNetForce());
         force.close();
     }
     

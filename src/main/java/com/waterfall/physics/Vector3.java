@@ -1,130 +1,114 @@
 package com.waterfall.physics;
 
+import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.waterfall.natives.HeavyLibrary;
 
-public class Vector3 implements AutoCloseable {
-    private final Pointer nativeVector;
-    private boolean ownsNative;
-    
+/**
+ * 3D vector - used for position, velocity, acceleration, force.
+ * <p>
+ * {@code heavy::Vector3} is a 12-byte POD with fields {@code x}, {@code y},
+ * {@code z} at offsets 0, 4, 8. When we need to pass a vector into a heavy
+ * method that takes {@code const Vector3&} we just point it at a 12-byte
+ * native memory block laid out the same way.
+ */
+public class Vector3 {
+
+    public static final int SIZE = 12; // sizeof(heavy::Vector3)
+
+    public float x;
+    public float y;
+    public float z;
+
+    public Vector3() {
+        this(0, 0, 0);
+    }
+
     public Vector3(float x, float y, float z) {
-        this.nativeVector = HeavyLibrary.INSTANCE.heavy_Vector3_create_with_params(x, y, z);
-        this.ownsNative = true;
+        this.x = x;
+        this.y = y;
+        this.z = z;
     }
-    
-    Vector3(Pointer nativeVector) {
-        this.nativeVector = nativeVector;
-        this.ownsNative = false;
+
+    // ---- Field-like getters (used by the rest of the project) ----
+    public float getX() { return x; }
+    public float getY() { return y; }
+    public float getZ() { return z; }
+
+    /** Write this vector to a 12-byte native memory block (for passing into heavy). */
+    public Memory toNative() {
+        Memory mem = new Memory(SIZE);
+        mem.setFloat(0, x);
+        mem.setFloat(4, y);
+        mem.setFloat(8, z);
+        return mem;
     }
-    
-    public Pointer getNativeVector() {
-        return nativeVector;
+
+    /** Alias for {@link #toNative()} used by direction/RotationalBody callers. */
+    public Memory getNativeVector() {
+        return toNative();
     }
-    
-    public float getX() {
-        return HeavyLibrary.INSTANCE.heavy_Vector3_getX(nativeVector);
+
+    /** Read a Vector3 back from a native 12-byte memory block. */
+    public static Vector3 fromNative(Pointer ptr) {
+        return new Vector3(ptr.getFloat(0), ptr.getFloat(4), ptr.getFloat(8));
     }
-    
-    public float getY() {
-        return HeavyLibrary.INSTANCE.heavy_Vector3_getY(nativeVector);
+
+    // Convenience math - all computed on the Java side. heavy is for physics
+    // integration only, we do small vector ops ourselves.
+    public Vector3 add(Vector3 other) {
+        return new Vector3(x + other.x, y + other.y, z + other.z);
     }
-    
-    public float getZ() {
-        return HeavyLibrary.INSTANCE.heavy_Vector3_getZ(nativeVector);
+
+    public Vector3 add(float dx, float dy, float dz) {
+        return new Vector3(x + dx, y + dy, z + dz);
     }
-    
-    public void set(float x, float y, float z) {
-        HeavyLibrary.INSTANCE.heavy_Vector3_set(nativeVector, x, y, z);
+
+    public Vector3 sub(Vector3 other) {
+        return new Vector3(x - other.x, y - other.y, z - other.z);
     }
-    
-    public void setX(float x) {
-        set(x, getY(), getZ());
+
+    public Vector3 scale(float s) {
+        return new Vector3(x * s, y * s, z * s);
     }
-    
-    public void setY(float y) {
-        set(getX(), y, getZ());
+
+    public float length() {
+        return (float) Math.sqrt(x * x + y * y + z * z);
     }
-    
-    public void setZ(float z) {
-        set(getX(), getY(), z);
+
+    public Vector3 normalize() {
+        float len = length();
+        if (len == 0) return new Vector3(0, 0, 0);
+        return scale(1.0f / len);
     }
-    
-    @Override
-    public void close() {
-        if (ownsNative && nativeVector != null) {
-            HeavyLibrary.INSTANCE.heavy_Vector3_destroy(nativeVector);
-            ownsNative = false;
-        }
+
+    public float dot(Vector3 other) {
+        return x * other.x + y * other.y + z * other.z;
     }
-    
-    @Override
-    protected void finalize() throws Throwable {
-        close();
-        super.finalize();
-    }
-    
-    public static Vector3 zero() {
-        return new Vector3(0, 0, 0);
-    }
-    
-    public static Vector3 up() {
-        return new Vector3(0, 1, 0);
-    }
-    
-    public static Vector3 down() {
-        return new Vector3(0, -1, 0);
-    }
-    
-    public static Vector3 right() {
-        return new Vector3(1, 0, 0);
-    }
-    
-    public static Vector3 left() {
-        return new Vector3(-1, 0, 0);
-    }
-    
-    public static Vector3 forward() {
-        return new Vector3(0, 0, -1);
-    }
-    
-    public static Vector3 backward() {
-        return new Vector3(0, 0, 1);
-    }
-    
-    /**
-     * 计算叉积 (cross product)
-     * this × other
-     */
+
     public Vector3 cross(Vector3 other) {
         return new Vector3(
-            getY() * other.getZ() - getZ() * other.getY(),
-            getZ() * other.getX() - getX() * other.getZ(),
-            getX() * other.getY() - getY() * other.getX()
-        );
+                y * other.z - z * other.y,
+                z * other.x - x * other.z,
+                x * other.y - y * other.x);
     }
-    
-    /**
-     * 计算点积 (dot product)
-     */
-    public float dot(Vector3 other) {
-        return getX() * other.getX() + getY() * other.getY() + getZ() * other.getZ();
+
+    // Small helpers we pass to heavy (e.g. to apply up vector as force direction)
+    public static Memory nativeZero() {
+        Memory m = new Memory(SIZE);
+        m.setFloat(0, 0); m.setFloat(4, 0); m.setFloat(8, 0);
+        return m;
     }
-    
-    /**
-     * 计算长度 (magnitude)
-     */
-    public float length() {
-        return (float) Math.sqrt(getX() * getX() + getY() * getY() + getZ() * getZ());
+
+    public static Memory nativeUp() {
+        Memory m = new Memory(SIZE);
+        m.setFloat(0, 0); m.setFloat(4, 1); m.setFloat(8, 0);
+        return m;
     }
-    
-    /**
-     * 归一化
-     */
-    public Vector3 normalized() {
-        float len = length();
-        if (len > 0.0001f) {
-            return new Vector3(getX() / len, getY() / len, getZ() / len);
-        }
-        return zero();
+
+    public static Memory nativeDown() {
+        Memory m = new Memory(SIZE);
+        m.setFloat(0, 0); m.setFloat(4, -1); m.setFloat(8, 0);
+        return m;
     }
 }

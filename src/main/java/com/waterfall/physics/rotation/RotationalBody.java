@@ -1,98 +1,118 @@
 package com.waterfall.physics.rotation;
 
+import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.waterfall.natives.DirectionLibrary;
 import com.waterfall.physics.Vector3;
 
 /**
- * 旋转刚体 - 用于计算3D旋转物理
- * 包含方向、角速度、角加速度和转动惯量
+ * Wrapper around {@code direction::RotationalBody}.
+ * <p>
+ * Memory layout (approximate):
+ * <pre>
+ *    0 .. 11  Direction (pitch, yaw, roll)
+ *   12 .. 23  Vector3 angularVelocity
+ *   24 .. 35  Vector3 angularAcceleration
+ *   36 .. 39  float momentOfInertia
+ *   40 .. 43  bool isStatic (padded to 4 bytes)
+ *   44 .. 55  Vector3 oscillationAxis
+ *   56 .. 59  float oscillationMagnitude
+ *   60 .. 63  bool isOscillating (padded to 4 bytes)
+ *   64 .. 71  padding to 72
+ * </pre>
  */
-public class RotationalBody implements AutoCloseable {
-    private final Pointer nativeBody;
-    private boolean ownsNative;
-    private final Direction direction;
-    
+public class RotationalBody {
+
+    public static final int SIZE = 72; // sizeof(direction::RotationalBody)
+
+    private static final int OFFSET_DIR   = 0;   // Direction at start
+    private static final int OFFSET_MOI   = 36;  // momentOfInertia
+
+    private final Memory nativeMem;
+
     public RotationalBody() {
-        this.nativeBody = DirectionLibrary.INSTANCE.direction_RotationalBody_create();
-        this.ownsNative = true;
-        this.direction = new Direction(nativeBody);
+        nativeMem = new Memory(SIZE);
+        DirectionLibrary.INSTANCE._ZN9direction14RotationalBodyC1Ev(nativeMem);
     }
-    
-    RotationalBody(Pointer nativeBody) {
-        this.nativeBody = nativeBody;
-        this.ownsNative = false;
-        this.direction = new Direction(nativeBody);
-    }
-    
+
     public RotationalBody(float momentOfInertia) {
-        this.nativeBody = DirectionLibrary.INSTANCE.direction_RotationalBody_create_with_params(momentOfInertia);
-        this.ownsNative = true;
-        this.direction = new Direction(nativeBody);
+        nativeMem = new Memory(SIZE);
+        DirectionLibrary.INSTANCE._ZN9direction14RotationalBodyC1Ef(nativeMem, momentOfInertia);
     }
-    
-    Pointer getNativeBody() {
-        return nativeBody;
+
+    public Pointer getPointer() {
+        return nativeMem;
     }
-    
-    /**
-     * 获取方向（pitch, yaw, roll）
-     */
+
     public Direction getDirection() {
-        return direction;
+        // View the first 12 bytes as a Direction. We construct a Java-side copy
+        // by reading the memory contents directly.
+        Pointer dirView = nativeMem.share(OFFSET_DIR);
+        Direction d = new Direction();
+        // Copy from our memory into d. The Direction getters read via member
+        // functions, which operate on d's internal memory. So we re-initialize
+        // d using C++ constructor semantics by reading offsets and calling set.
+        float pitch = dirView.getFloat(0);
+        float yaw   = dirView.getFloat(4);
+        float roll  = dirView.getFloat(8);
+        d.set(pitch, yaw, roll);
+        return d;
     }
-    
-    /**
-     * 应用扭矩
-     */
+
+    public float getPitch() {
+        return nativeMem.getFloat(0);
+    }
+
+    public float getYaw() {
+        return nativeMem.getFloat(4);
+    }
+
+    public float getRoll() {
+        return nativeMem.getFloat(8);
+    }
+
+    public float getMomentOfInertia() {
+        return nativeMem.getFloat(OFFSET_MOI);
+    }
+
     public void applyTorque(Vector3 torque) {
-        DirectionLibrary.INSTANCE.direction_RotationalBody_applyTorque(nativeBody, torque.getNativeVector());
-    }
-    
-    /**
-     * 应用脉冲扭矩
-     */
-    public void applyImpulseTorque(Vector3 impulseTorque) {
-        DirectionLibrary.INSTANCE.direction_RotationalBody_applyImpulseTorque(nativeBody, impulseTorque.getNativeVector());
-    }
-    
-    /**
-     * 应用振荡力
-     */
-    public void applyOscillation(Vector3 axis, float initialMagnitude) {
-        DirectionLibrary.INSTANCE.direction_RotationalBody_applyOscillation(nativeBody, axis.getNativeVector(), initialMagnitude);
-    }
-    
-    /**
-     * 更新旋转状态
-     */
-    public void update(float deltaTime) {
-        DirectionLibrary.INSTANCE.direction_RotationalBody_update(nativeBody, deltaTime);
-    }
-    
-    /**
-     * 设置是否为静态
-     */
-    public void setStatic(boolean value) {
-        DirectionLibrary.INSTANCE.direction_RotationalBody_setStatic(nativeBody, value);
-    }
-    
-    public boolean isStatic() {
-        return DirectionLibrary.INSTANCE.direction_RotationalBody_getStatic(nativeBody);
-    }
-    
-    public void reset() {
-        DirectionLibrary.INSTANCE.direction_RotationalBody_reset(nativeBody);
-    }
-    
-    @Override
-    public void close() {
-        if (ownsNative && nativeBody != null) {
-            DirectionLibrary.INSTANCE.direction_RotationalBody_destroy(nativeBody);
-            ownsNative = false;
+        try (Memory v = torque.toNative()) {
+            DirectionLibrary.INSTANCE._ZN9direction14RotationalBody11applyTorqueERKNS_7Vector3E(nativeMem, v);
         }
     }
-    
+
+    public void applyImpulseTorque(Vector3 impulseTorque) {
+        try (Memory v = impulseTorque.toNative()) {
+            DirectionLibrary.INSTANCE._ZN9direction14RotationalBody18applyImpulseTorqueERKNS_7Vector3E(nativeMem, v);
+        }
+    }
+
+    public void applyOscillation(Vector3 axis, float initialMagnitude) {
+        try (Memory v = axis.toNative()) {
+            DirectionLibrary.INSTANCE._ZN9direction14RotationalBody16applyOscillationERKNS_7Vector3Ef(nativeMem, v, initialMagnitude);
+        }
+    }
+
+    public void update(float dt) {
+        DirectionLibrary.INSTANCE._ZN9direction14RotationalBody6updateEf(nativeMem, dt);
+    }
+
+    public void setStatic(boolean value) {
+        DirectionLibrary.INSTANCE._ZN9direction14RotationalBody9setStaticEb(nativeMem, (byte)(value ? 1 : 0));
+    }
+
+    public boolean isStatic() {
+        return DirectionLibrary.INSTANCE._ZNK9direction14RotationalBody9getStaticEv(nativeMem) != 0;
+    }
+
+    public void reset() {
+        DirectionLibrary.INSTANCE._ZN9direction14RotationalBody5resetEv(nativeMem);
+    }
+
+    /** No-op placeholder — kept for API compatibility. */
+    public void close() {
+    }
+
     @Override
     protected void finalize() throws Throwable {
         close();

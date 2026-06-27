@@ -1,78 +1,128 @@
 package com.waterfall;
 
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.dimension.LevelStem;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.event.server.ServerStartingEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 import com.waterfall.config.PhysicsConfig;
+import com.waterfall.dimension.PhysicsDimension;
 import com.waterfall.entity.PhysicsEntityType;
 import com.waterfall.block.PhysicsBlocks;
-import com.waterfall.block.PhysicsBlockEntities;
-import com.waterfall.network.PhysicsPacketHandler;
-import com.waterfall.natives.DirectionLibrary;
-import com.waterfall.natives.HeavyLibrary;
+import com.waterfall.physics.PhysicsBody;
+import com.waterfall.physics.PhysicsWorld;
 import com.waterfall.natives.NativeLoader;
-import com.waterfall.physics.PhysicsEngineManager;
-import com.waterfall.physics.rigidbody.RigidBodyManager;
-import com.waterfall.physics.rotation.RotationalBodyManager;
 
+/**
+ * Waterfall Mod 主入口
+ *
+ * 架构：
+ *   PhysicsWorld（heavy） ← 每 tick 由服务端 PhysicsBlockEntity 各自推进
+ *   ↑
+ *   PhysicsBlockEntity（主世界）：持有 PhysicsBody + Force，tick 时交给 heavy 计算
+ *   ↑
+ *   玩家交互 → 映射到物理维度的原版方块 → BlockState.use()
+ */
 @Mod(WaterfallMod.MODID)
 public class WaterfallMod {
     public static final String MODID = "waterfall";
     public static final Logger LOGGER = LogUtils.getLogger();
-    
+
+    // heavy 原生库的全局 PhysicsWorld（所有 PhysicsBlockEntity 的 body 都挂在这里）
+    private static PhysicsWorld HEAVY_WORLD = null;
+
+    // DimensionType 注册
+    public static final DeferredRegister<DimensionType> DIMENSION_TYPES =
+        DeferredRegister.create(Registries.DIMENSION_TYPE, MODID);
+
     public WaterfallMod(IEventBus modEventBus) {
         LOGGER.info("Initializing Waterfall Physics Mod");
-        
-        // Initialize native libraries
+
+        // 加载原生库 (heavy / direction)
         try {
             NativeLoader.loadHeavy();
             NativeLoader.loadDirection();
             LOGGER.info("Native libraries loaded successfully");
-        } catch (Exception e) {
+        } catch (Throwable e) {
             LOGGER.error("Failed to load native libraries", e);
         }
-        
+
+        // 配置
         PhysicsConfig.register();
+
+        // 注册内容
+        DIMENSION_TYPES.register(modEventBus);
         PhysicsEntityType.register(modEventBus);
         PhysicsBlocks.register(modEventBus);
-        PhysicsBlockEntities.register(modEventBus);
-        com.waterfall.item.PhysicsItems.register(modEventBus);
-        
-        PhysicsPacketHandler.register();
-        
-        modEventBus.addListener(this::onCommonSetup);
+
+        // 服务器启动时：缓存物理维度引用 + 创建 heavy PhysicsWorld
         modEventBus.addListener(this::onServerStarting);
-        modEventBus.addListener(this::onServerTick);
-        
-        LOGGER.info("Waterfall Physics Mod initialized successfully");
+
+        LOGGER.info("Waterfall Physics Mod initialized");
     }
-    
-    private void onCommonSetup(final net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent event) {
-        LOGGER.info("Running common setup");
-        event.enqueueWork(() -> {
-            LOGGER.info("Physics engine manager initialized");
-        });
-    }
-    
+
     private void onServerStarting(final ServerStartingEvent event) {
-        LOGGER.info("Server starting");
-    }
-    
-    private void onServerTick(final ServerTickEvent.Post event) {
-        event.getServer().getAllLevels().forEach(level -> {
-            // 在所有世界中运行物理模拟
-            PhysicsEngineManager.getInstance().tick(level);
-            if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                RigidBodyManager.getInstance().tick(serverLevel);
-                RotationalBodyManager.getInstance().tick(serverLevel);
+        LOGGER.info("Server starting - caching physics dimension and creating heavy world");
+
+        // 1) 缓存物理维度
+        ServerLevel physicsLevel = event.getServer().getLevel(PhysicsDimension.LEVEL_KEY);
+        if (physicsLevel != null) {
+            PhysicsDimension.cacheLevel(physicsLevel);
+            LOGGER.info("Physics dimension cached at {}", physicsLevel.dimension().location());
+        } else {
+            LOGGER.warn("Physics dimension not found - ensure dimension json files exist!");
+        }
+
+        // 2) 建立 heavy 的 PhysicsWorld
+        if (HEAVY_WORLD != null) {
+            try {
+                HEAVY_WORLD.close();
+            } catch (Exception e) {
+                LOGGER.warn("Error closing previous heavy world: {}", e.getMessage());
             }
-        });
+            HEAVY_WORLD = null;
+        }
+        try {
+            HEAVY_WORLD = new PhysicsWorld();
+            LOGGER.info("heavy PhysicsWorld created");
+        } catch (Throwable e) {
+            LOGGER.error("Failed to create heavy PhysicsWorld - native library may be unavailable", e);
+        }
     }
-    
+
+    public static PhysicsWorld getHeavyWorld() {
+        return HEAVY_WORLD;
+    }
+
+    public static void addPhysicsBodyToWorld(PhysicsBody body) {
+        if (body == null) return;
+        if (HEAVY_WORLD != null) {
+            try {
+                HEAVY_WORLD.addBody(body);
+            } catch (Throwable e) {
+                LOGGER.warn("addPhysicsBodyToWorld failed: {}", e.getMessage());
+            }
+        }
+    }
+
+    public static void removePhysicsBodyFromWorld(PhysicsBody body) {
+        if (body == null) return;
+        if (HEAVY_WORLD != null) {
+            try {
+                HEAVY_WORLD.removeBody(body);
+            } catch (Throwable e) {
+                LOGGER.warn("removePhysicsBodyFromWorld failed: {}", e.getMessage());
+            }
+        }
+    }
+
     public static ResourceLocation prefix(String path) {
         return ResourceLocation.fromNamespaceAndPath(MODID, path);
     }
