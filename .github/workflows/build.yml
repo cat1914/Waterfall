@@ -11,7 +11,14 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          submodules: recursive
+          # Only init one level of submodules. The direction submodule contains
+          # a circular Waterfall reference that breaks `submodules: recursive`.
+          submodules: true
+
+      - name: Init submodules (first level only)
+        run: |
+          git submodule sync
+          git submodule update --init
 
       - name: Setup JDK 21
         uses: actions/setup-java@v4
