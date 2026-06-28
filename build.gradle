@@ -189,15 +189,19 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
 }
 
-// Exclude the standalone smoke-test class from the published mod jar.
+// Exclude the standalone smoke-test and example classes from the published mod jar.
 // HeavySmokeTest has a main() entry point and is only meant for manual
 // verification of the native library binding, not for distribution.
+// WaterfallPhysicsExample is a demonstration mod (@Mod("waterfall_example"))
+// that has no corresponding [[mods]] entry in neoforge.mods.toml — shipping it
+// causes "Cowardly refusing to send event ... to a broken mod state" crashes.
 processResources {
     exclude 'com/waterfall/natives/HeavySmokeTest.class'
 }
 jar {
     exclude 'com/waterfall/natives/HeavySmokeTest.class'
     exclude 'com/waterfall/natives/HeavySmokeTest*.class'
+    exclude 'com/waterfall/example/**'
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
