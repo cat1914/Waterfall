@@ -118,14 +118,11 @@ configurations {
 }
 
 dependencies {
-    // JNA for native library loading — bundled into the mod jar via jarJar so
-    // the dependency is available at runtime without a separate download.
-    jarJar(implementation('net.java.dev.jna:jna:5.14.0')) {
-        version { strictly '[5.14.0,6.0.0)'; prefer '5.14.0' }
-    }
-    jarJar(implementation('net.java.dev.jna:jna-platform:5.14.0')) {
-        version { strictly '[5.14.0,6.0.0)'; prefer '5.14.0' }
-    }
+    // JNA is already provided by NeoForge at runtime (as a JPMS module).
+    // Only declare it for compile-time; do NOT bundle it via jarJar — that
+    // causes "Module com.sun.jna reads another module named com.sun.jna".
+    compileOnly 'net.java.dev.jna:jna:5.14.0'
+    compileOnly 'net.java.dev.jna:jna-platform:5.14.0'
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
