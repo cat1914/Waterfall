@@ -1,6 +1,5 @@
 package com.waterfall.config;
 
-import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
@@ -32,7 +31,6 @@ public class PhysicsConfig {
     private static final String CONFIG_FILE_NAME = "waterfall-physics.toml";
     
     public static void register() {
-        NeoForge.EVENT_BUS.register(PhysicsConfig.class);
         loadConfig();
     }
     
