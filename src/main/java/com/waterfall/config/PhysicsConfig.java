@@ -1,6 +1,9 @@
 package com.waterfall.config;
 
+import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
@@ -32,6 +35,16 @@ public class PhysicsConfig {
     
     public static void register() {
         loadConfig();
+        // 将 PhysicsConfig 注册到 NeoForge 事件总线。
+        // 事件总线要求被注册的类必须至少包含一个 @SubscribeEvent 方法，
+        // 否则会在启动时抛出异常。onServerTick 即是为此保留的 dummy 入口，
+        // 也方便后续在此处挂载配置热重载逻辑。
+        NeoForge.EVENT_BUS.register(PhysicsConfig.class);
+    }
+
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        // dummy：保持 PhysicsConfig 在事件总线上注册
     }
     
     private static void loadConfig() {
