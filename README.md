@@ -276,7 +276,7 @@ PhysicsBlockEntity structure = WaterfallPhysics.getApi()
 
 ## License
 
-MIT License - feel free to use this library in your mods!
+GNU General Public License v3.0
 
 ---
 
