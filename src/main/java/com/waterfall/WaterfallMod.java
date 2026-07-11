@@ -7,6 +7,7 @@ import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -63,7 +64,9 @@ public class WaterfallMod {
         PhysicsBlocks.register(modEventBus);
 
         // 服务器启动时：缓存物理维度引用 + 创建 heavy PhysicsWorld
-        modEventBus.addListener(this::onServerStarting);
+        // 注意：ServerStartingEvent 不是 IModBusEvent，必须注册到 NeoForge.EVENT_BUS
+        // （游戏事件总线），不能注册到 modEventBus，否则启动时抛 IllegalArgumentException。
+        NeoForge.EVENT_BUS.addListener(this::onServerStarting);
 
         LOGGER.info("Waterfall Physics Mod initialized");
     }
