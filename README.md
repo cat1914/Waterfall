@@ -36,7 +36,7 @@ Other mods can use this library to create interactive physics structures in the 
 In your `build.gradle` or `gradle.properties`:
 ```gradle
 dependencies {
-    implementation fg.deobf("com.yourname:waterfall:1.0.0")
+    implementation fg.deobf("io.github.cat1914:1.0.0")
 }
 ```
 
