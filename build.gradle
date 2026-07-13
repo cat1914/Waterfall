@@ -1,6 +1,8 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id 'signing'
+    id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
     id 'net.neoforged.moddev' version '2.0.141'
     id 'idea'
 }
@@ -171,16 +173,91 @@ sourceSets.main.resources.srcDir generateModMetadata
 // To avoid having to run "generateModMetadata" manually, make it run on every project reload
 neoForge.ideSyncTask generateModMetadata
 
-// Example configuration to allow publishing using the maven-publish plugin
+// Publishing to Maven Central via Sonatype OSSRH / central.sonatype.com.
+// groupId:  io.github.cat1914   (registered in gradle.properties as mod_group_id)
+//
+// All credentials and signing material are read from environment variables /
+// Gradle properties at publish time. They are NEVER hardcoded in this file.
+//
+// Required env vars / properties (provided by GitHub Actions Secrets in CI):
+//   OSSRH_USERNAME   Sonatype account user
+//   OSSRH_TOKEN      Sonatype account password
+//   GPG_KEY_ID       8-char short key id            e.g. ABCD1234
+//   GPG_PASSPHRASE   passphrase of the GPG key      (only for local dev; CI uses keyring)
+//
+// In GitHub Actions, the key material is imported into a temporary keyring by
+// the `import-gpg` step before this is invoked. We rely on `signing.useInMemoryPgpKeys`.
+//
 publishing {
     publications {
         register('mavenJava', MavenPublication) {
             from components.java
+
+            groupId = mod_group_id
+            artifactId = 'waterfall'
+            version = mod_version
+
+            pom {
+                name = mod_name
+                description = 'A real physics simulation engine for Minecraft, integrating the heavy C++ engine for accurate physics calculations, including underwater physics, sub-dimension support, and realistic forces.'
+                url = 'https://github.com/cat1914/Waterfall'
+                licenses {
+                    license {
+                        name = 'GNU General Public License v3.0'
+                        url = 'https://www.gnu.org/licenses/gpl-3.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'cat1914'
+                        name = 'cat1914'
+                        url = 'https://github.com/cat1914'
+                    }
+                }
+                scm {
+                    url = 'https://github.com/cat1914/Waterfall'
+                    connection = 'scm:git:git://github.com/cat1914/Waterfall.git'
+                    developerConnection = 'scm:git:ssh://git@github.com/cat1914/Waterfall.git'
+                    tag = 'v' + mod_version
+                }
+            }
         }
     }
     repositories {
+        // Local file repo — handy for `gradle publishToMavenLocal` / smoke tests.
         maven {
             url "file://${project.projectDir}/repo"
+        }
+    }
+}
+
+// GPG signing of all published artifacts.
+// Resolution order for the in-memory key:
+//   1. Gradle properties / env: GPG_KEY, GPG_PASSPHRASE (base64-armored ASCII)
+//   2. In CI, the import-gpg step writes ~/.gradle/gradle.properties OR these
+//      are set as repository secrets and exported to env.
+// Signing happens for the `publishMavenJavaPublicationToMavenCentral` task.
+signing {
+    useInMemoryPgpKeys(
+        findProperty('GPG_KEY'),
+        findProperty('GPG_PASSPHRASE')
+    )
+    sign publishing.publications.mavenJava
+}
+
+// Sonatype / Maven Central publish configuration.
+// Targets the new central.sonatype.com publishing portal.
+// Required env vars / properties (GitHub Actions Secrets in CI):
+//   OSSRH_USERNAME   central.sonatype.com user token (Account > Generate User Token)
+//   OSSRH_TOKEN      central.sonatype.com user token password
+nexusPublishing {
+    packageGroup = 'io.github.cat1914'
+
+    repositories {
+        sonatype {
+            // The new portal accepts user tokens (recommended). NEVER hardcode.
+            username = findProperty('OSSRH_USERNAME') ?: System.getenv('OSSRH_USERNAME')
+            password = findProperty('OSSRH_TOKEN')    ?: System.getenv('OSSRH_TOKEN')
         }
     }
 }
