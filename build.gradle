@@ -246,7 +246,12 @@ signing {
 }
 
 // Sonatype / Maven Central publish configuration.
-// Targets the new central.sonatype.com publishing portal.
+// NOTE: OSSRH (https://oss.sonatype.org) reached EOL on 2025-06-30.
+// The current publish target is Sonatype Central at
+//   https://ossrh-staging-api.central.sonatype.com/service/local/
+// (per gradle-nexus/publish-plugin docs:
+//  https://central.sonatype.org/publish/publish-portal-ossrh-staging-api/#configuration)
+//
 // Required env vars / properties (GitHub Actions Secrets in CI):
 //   OSSRH_USERNAME   central.sonatype.com user token (Account > Generate User Token)
 //   OSSRH_TOKEN      central.sonatype.com user token password
@@ -255,6 +260,12 @@ nexusPublishing {
 
     repositories {
         sonatype {
+            // Required for the new Central publishing portal.
+            // The plugin's default URL points to the legacy oss.sonatype.org
+            // which now returns HTTP 402 Payment Required.
+            nexusUrl = uri('https://ossrh-staging-api.central.sonatype.com/service/local/')
+            snapshotRepositoryUrl = uri('https://central.sonatype.com/repository/maven-snapshots/')
+
             // The new portal accepts user tokens (recommended). NEVER hardcode.
             username = findProperty('OSSRH_USERNAME') ?: System.getenv('OSSRH_USERNAME')
             password = findProperty('OSSRH_TOKEN')    ?: System.getenv('OSSRH_TOKEN')
