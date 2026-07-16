@@ -35,29 +35,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # 把 GPG 私钥导入到 runner 的临时 keyring，供 Gradle 签名使用。
-      # 三个 Secrets：
-      #   GPG_PRIVATE_KEY     -----BEGIN PGP PRIVATE KEY BLOCK----- ... 的 ASCII-armored 内容
-      #   GPG_PASSPHRASE      私钥的 passphrase
-      #   GPG_KEY_ID          8 位 short key id（可选，仅用于日志展示）
-      - name: Import GPG key
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSPHRASE:  ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          set -euo pipefail
-          # 把 ASCII-armored 私钥写入临时文件，再用 --batch --pinentry-mode loopback 导入
-          KEY_FILE="$(mktemp)"
-          printf '%s' "$GPG_PRIVATE_KEY" > "$KEY_FILE"
-          gpg --batch --yes --pinentry-mode loopback \
-              --passphrase "$GPG_PASSPHRASE" \
-              --import "$KEY_FILE"
-          rm -f "$KEY_FILE"
-          # 列出已导入的密钥，便于排查
-          gpg --list-secret-keys --keyid-format=long
-
       # 同步 mod_version 与 tag（去掉 v 前缀）—— 防止本地版本与 tag 不一致。
-      # 必要时用 sed 改 gradle.properties，但默认 mod_version 应已匹配。
       - name: Sync mod_version with tag (drop v prefix)
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
@@ -66,21 +44,39 @@ jobs:
           echo "Updated mod_version in gradle.properties"
           grep '^mod_version=' gradle.properties
 
+      # 验证 GPG 公钥已发布到公钥服务器。Maven Central 通过公钥指纹验证签名，
+      # 必须能从 keyserver 下载到。私钥以 ASCII-armored 形式传给 Gradle 的
+      # useInMemoryPgpKeys() 内存签名（不经 keyring 中转），passphrase 通过
+      # Gradle property 传入。
+      - name: Verify GPG public key on keyserver
+        env:
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GPG_KEY_ID:-}" ]; then
+            echo "GPG_KEY_ID secret not set; skipping keyserver check"
+            exit 0
+          fi
+          echo "Looking up $GPG_KEY_ID on keys.openpgp.org ..."
+          if gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY_ID" 2>&1; then
+            echo "Public key present on keys.openpgp.org"
+          else
+            echo "::warning::Public key NOT found on keys.openpgp.org. Upload with:"
+            echo "  gpg --armor --export $GPG_KEY_ID | curl -T - https://keys.openpgp.org/upload"
+          fi
+
       - name: Publish to Maven Central
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_TOKEN:    ${{ secrets.OSSRH_TOKEN }}
+          # 私钥原文（包含 BEGIN/END 标记）和 passphrase 透传给 Gradle。
+          # 不要在日志中 echo 这些值。
+          ORG_GRADLE_PROJECT_GPG_KEY:        ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           ./gradlew publishMavenJavaPublicationToSonatypeRepository \
-                      closeSonatypeStagingRepository
-          # closeSonatypeStagingRepository 会让 Sonatype 触发 Central 同步；
-          # nexus-publish-plugin 还提供了 releaseSonatypeStagingRepository 手动放行；
+                      closeSonatypeStagingRepository \
+                      --no-build-cache
+          # closeSonatypeStagingRepository 让 Sonatype 触发 Central 同步；
           # 新 central.sonatype.com portal 通常自动 promote。
-
-      - name: Verify (optional)
-        env:
-          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          OSSRH_TOKEN:    ${{ secrets.OSSRH_TOKEN }}
-        run: |
-          ./gradlew publishMavenJavaPublicationToSonatypeRepository \
-                      closeAndReleaseSonatypeStagingRepository
+          # releaseSonatypeStagingRepository 可显式放行（可选）。

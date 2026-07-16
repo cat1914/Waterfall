@@ -232,16 +232,30 @@ publishing {
 }
 
 // GPG signing of all published artifacts.
-// Resolution order for the in-memory key:
-//   1. Gradle properties / env: GPG_KEY, GPG_PASSPHRASE (base64-armored ASCII)
-//   2. In CI, the import-gpg step writes ~/.gradle/gradle.properties OR these
-//      are set as repository secrets and exported to env.
-// Signing happens for the `publishMavenJavaPublicationToMavenCentral` task.
+// `useInMemoryPgpKeys` must be called with non-null Strings at *configuration*
+// time, otherwise no signer is configured and :signMavenJavaPublication fails
+// with "没有配置的签署者" / "no configured signers".
+//
+// We resolve both values lazily: Gradle property GPG_KEY / GPG_PASSPHRASE
+// first, then environment variables (with ORG_GRADLE_PROJECT_ prefix or
+// without). The key must be the full ASCII-armored PRIVATE KEY block
+// (including -----BEGIN/END----- lines).
 signing {
-    useInMemoryPgpKeys(
-        findProperty('GPG_KEY'),
-        findProperty('GPG_PASSPHRASE')
-    )
+    def gpgKey = (findProperty('GPG_KEY')        ?: System.getenv('GPG_KEY'))        ?: System.getenv('ORG_GRADLE_PROJECT_GPG_KEY')
+    def gpgPass = (findProperty('GPG_PASSPHRASE') ?: System.getenv('GPG_PASSPHRASE')) ?: System.getenv('ORG_GRADLE_PROJECT_GPG_PASSPHRASE')
+    if (gpgKey == null || gpgKey.toString().trim().isEmpty()) {
+        throw new GradleException(
+            'GPG_KEY (or ORG_GRADLE_PROJECT_GPG_KEY) is not set. ' +
+            'Provide the ASCII-armored PGP private key via Gradle property, ' +
+            'environment variable, or GitHub Actions secret.'
+        )
+    }
+    if (gpgPass == null) {
+        // Empty passphrase is allowed (uncommon). useInMemoryPgpKeys does
+        // not accept null but accepts "".
+        gpgPass = ''
+    }
+    useInMemoryPgpKeys(gpgKey.toString(), gpgPass.toString())
     sign publishing.publications.mavenJava
 }
 
