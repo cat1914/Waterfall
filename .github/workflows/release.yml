@@ -74,14 +74,17 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          mkdir -p .gradle/secrets
+          KEY_PATH="$RUNNER_TEMP/gpg-private.key"
           # 私钥原样写入（保留换行），权限仅 owner 可读
-          printf '%s' "$GPG_PRIVATE_KEY" > .gradle/secrets/gpg-private.key
-          chmod 600 .gradle/secrets/gpg-private.key
-          echo "Wrote $(wc -c < .gradle/secrets/gpg-private.key) bytes to .gradle/secrets/gpg-private.key"
-          head -1 .gradle/secrets/gpg-private.key
-          tail -1 .gradle/secrets/gpg-private.key
-          # 注意：head/tail 只为确认 BEGIN/END 标记完整，*不*输出私钥内容
+          printf '%s' "$GPG_PRIVATE_KEY" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "Wrote $(wc -c < "$KEY_PATH") bytes to $KEY_PATH"
+          echo "--- first line ---"
+          head -1 "$KEY_PATH"
+          echo "--- last line ---"
+          tail -1 "$KEY_PATH"
+          # 把绝对路径写入 GITHUB_ENV，下一步读出来
+          echo "GPG_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
       - name: Publish to Maven Central
         env:
@@ -90,8 +93,10 @@ jobs:
           # passphrase 单行，直接走 env。build.gradle 会优先用 GPG_KEY_FILE
           # 读取私钥文件。
           ORG_GRADLE_PROJECT_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          ORG_GRADLE_PROJECT_GPG_KEY_FILE: ${{ github.workspace }}/.gradle/secrets/gpg-private.key
+          ORG_GRADLE_PROJECT_GPG_KEY_FILE:  ${{ env.GPG_KEY_PATH }}
         run: |
+          echo "GPG_KEY_FILE=$GPG_KEY_FILE"
+          ls -la "$GPG_KEY_FILE" || true
           ./gradlew publishMavenJavaPublicationToSonatypeRepository \
                       closeSonatypeStagingRepository \
                       --no-build-cache
