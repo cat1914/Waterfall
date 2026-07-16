@@ -75,14 +75,31 @@ jobs:
         run: |
           set -euo pipefail
           KEY_PATH="$RUNNER_TEMP/gpg-private.key"
+
+          # ---- diagnostics: figure out what GitHub injected ----
+          echo "[diag] GPG_PRIVATE_KEY env var is: ${GPG_PRIVATE_KEY:+set, length=${#GPG_PRIVATE_KEY}}${GPG_PRIVATE_KEY:-<unset>}"
+          echo "[diag] RUNNER_TEMP=$RUNNER_TEMP"
+          echo "[diag] GITHUB_ENV=$GITHUB_ENV"
+
+          if [ -z "${GPG_PRIVATE_KEY:-}" ]; then
+            echo "::error::GPG_PRIVATE_KEY is not set in this step's environment. Check the secret exists at repo level and is named exactly GPG_PRIVATE_KEY."
+            exit 1
+          fi
+
           # 私钥原样写入（保留换行），权限仅 owner 可读
           printf '%s' "$GPG_PRIVATE_KEY" > "$KEY_PATH"
           chmod 600 "$KEY_PATH"
-          echo "Wrote $(wc -c < "$KEY_PATH") bytes to $KEY_PATH"
-          echo "--- first line ---"
-          head -1 "$KEY_PATH"
-          echo "--- last line ---"
-          tail -1 "$KEY_PATH"
+
+          echo "[diag] wrote $(wc -c < "$KEY_PATH") bytes to $KEY_PATH"
+          echo "[diag] first 60 bytes (od):"
+          head -c 60 "$KEY_PATH" | od -c | head -3
+          echo "[diag] last 60 bytes (od):"
+          tail -c 60 "$KEY_PATH" | od -c | tail -3
+          echo "[diag] grep BEGIN marker:"
+          grep -c 'BEGIN PGP PRIVATE KEY BLOCK' "$KEY_PATH" || true
+          echo "[diag] grep END marker:"
+          grep -c 'END PGP PRIVATE KEY BLOCK' "$KEY_PATH" || true
+
           # 把绝对路径写入 GITHUB_ENV，下一步读出来
           echo "GPG_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
@@ -95,8 +112,16 @@ jobs:
           ORG_GRADLE_PROJECT_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           ORG_GRADLE_PROJECT_GPG_KEY_FILE:  ${{ env.GPG_KEY_PATH }}
         run: |
-          echo "GPG_KEY_FILE=$GPG_KEY_FILE"
-          ls -la "$GPG_KEY_FILE" || true
+          echo "[diag] GPG_KEY_FILE=$GPG_KEY_FILE"
+          echo "[diag] env.GPG_KEY_PATH=$GPG_KEY_PATH"
+          if [ -z "${GPG_KEY_FILE:-}" ]; then
+            echo "::error::ORG_GRADLE_PROJECT_GPG_KEY_FILE is empty. GITHUB_ENV propagation failed between steps."
+            exit 1
+          fi
+          echo "[diag] ls of key file:"
+          ls -la "$GPG_KEY_FILE"
+          echo "[diag] sha256:"
+          sha256sum "$GPG_KEY_FILE"
           ./gradlew publishMavenJavaPublicationToSonatypeRepository \
                       closeSonatypeStagingRepository \
                       --no-build-cache
