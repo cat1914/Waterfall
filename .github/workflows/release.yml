@@ -69,59 +69,66 @@ jobs:
       # 导致 ASCII-armored PGP 块被破坏，Gradle 拿到的是坏数据。
       # 改为：先把私钥写到 runner 上的临时文件，再让 Gradle 通过 file()
       # 直接读文件。passphrase 单行，可以走 env。
+      #
+      # 注意：GitHub Actions 的 `secrets` 上下文在 `##[debug]Evaluating: secrets.XXX`
+      # 这类日志里只会输出 '***'，对名称拼写错误非常不友好。下面用
+      # $GITHUB_ENV dump 把当前所有与 gpg 相关的 secret 是否被求值打印出来。
       - name: Materialize GPG private key file
         env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          # 接受多个候选名以适配不同的命名习惯。GITHUB Actions 解析空字符串
+          # 和不存在的 secret 等价——所以一旦用 || 链起来，第一个非空就生效。
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY || secrets.GPG_KEY || secrets.GPG_PRIVATEKEY || secrets.PRIVATE_KEY || '' }}
+          GPG_PASSPHRASE:  ${{ secrets.GPG_PASSPHRASE  || secrets.GPG_PASS    || secrets.PASSPHRASE           || '' }}
         run: |
           set -euo pipefail
-          KEY_PATH="$RUNNER_TEMP/gpg-private.key"
-
-          # ---- diagnostics: figure out what GitHub injected ----
-          echo "[diag] GPG_PRIVATE_KEY env var is: ${GPG_PRIVATE_KEY:+set, length=${#GPG_PRIVATE_KEY}}${GPG_PRIVATE_KEY:-<unset>}"
+          echo "::group::GPG secret diagnostics"
           echo "[diag] RUNNER_TEMP=$RUNNER_TEMP"
-          echo "[diag] GITHUB_ENV=$GITHUB_ENV"
+          # 打印每个候选名是否被解析为非空（不打印内容，只打印长度 / set|unset）。
+          # 不能用 ${!name} 间接展开——避免 set -u + eval 类坑。
+          for pair in \
+            "GPG_PRIVATE_KEY:GPG_PRIVATE_KEY" \
+            "GPG_KEY:GPG_PRIVATE_KEY" \
+            "GPG_PRIVATEKEY:GPG_PRIVATE_KEY" \
+            "PRIVATE_KEY:GPG_PRIVATE_KEY" \
+            "GPG_PASSPHRASE:GPG_PASSPHRASE" \
+            "GPG_PASS:GPG_PASSPHRASE" \
+            "PASSPHRASE:GPG_PASSPHRASE"; do
+            actual="${pair%%:*}"
+            label="${pair##*:}"
+            v="${!actual:-}"
+            echo "[diag] env $actual (-> $label): $([ -n "$v" ] && echo "set, length=${#v}" || echo 'unset')"
+          done
+          echo "::endgroup::"
 
           if [ -z "${GPG_PRIVATE_KEY:-}" ]; then
-            echo "::error::GPG_PRIVATE_KEY is not set in this step's environment. Check the secret exists at repo level and is named exactly GPG_PRIVATE_KEY."
+            echo "::error::No GPG private key secret was injected. None of GPG_PRIVATE_KEY / GPG_KEY / GPG_PRIVATEKEY / PRIVATE_KEY resolved to a non-empty value. Verify the secret exists in the repo settings (Secrets and variables > Actions > Repository secrets) and the name is one of the candidates above."
             exit 1
           fi
 
-          # 私钥原样写入（保留换行），权限仅 owner 可读
+          KEY_PATH="$RUNNER_TEMP/gpg-private.key"
           printf '%s' "$GPG_PRIVATE_KEY" > "$KEY_PATH"
           chmod 600 "$KEY_PATH"
-
           echo "[diag] wrote $(wc -c < "$KEY_PATH") bytes to $KEY_PATH"
-          echo "[diag] first 60 bytes (od):"
-          head -c 60 "$KEY_PATH" | od -c | head -3
-          echo "[diag] last 60 bytes (od):"
-          tail -c 60 "$KEY_PATH" | od -c | tail -3
-          echo "[diag] grep BEGIN marker:"
-          grep -c 'BEGIN PGP PRIVATE KEY BLOCK' "$KEY_PATH" || true
-          echo "[diag] grep END marker:"
-          grep -c 'END PGP PRIVATE KEY BLOCK' "$KEY_PATH" || true
-
-          # 把绝对路径写入 GITHUB_ENV，下一步读出来
+          echo "[diag] head: $(head -1 "$KEY_PATH")"
+          echo "[diag] tail: $(tail -1 "$KEY_PATH")"
+          echo "[diag] BEGIN marker count: $(grep -c 'BEGIN PGP PRIVATE KEY BLOCK' "$KEY_PATH" || true)"
+          echo "[diag] END   marker count: $(grep -c 'END PGP PRIVATE KEY BLOCK'   "$KEY_PATH" || true)"
           echo "GPG_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
       - name: Publish to Maven Central
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_TOKEN:    ${{ secrets.OSSRH_TOKEN }}
-          # passphrase 单行，直接走 env。build.gradle 会优先用 GPG_KEY_FILE
-          # 读取私钥文件。
-          ORG_GRADLE_PROJECT_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          # passphrase 单行，走 env（多个候选名）。
+          ORG_GRADLE_PROJECT_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE || secrets.GPG_PASS || secrets.PASSPHRASE || '' }}
           ORG_GRADLE_PROJECT_GPG_KEY_FILE:  ${{ env.GPG_KEY_PATH }}
         run: |
-          echo "[diag] GPG_KEY_FILE=$GPG_KEY_FILE"
-          echo "[diag] env.GPG_KEY_PATH=$GPG_KEY_PATH"
-          if [ -z "${GPG_KEY_FILE:-}" ]; then
+          echo "[diag] ORG_GRADLE_PROJECT_GPG_KEY_FILE=$ORG_GRADLE_PROJECT_GPG_KEY_FILE"
+          if [ -z "${ORG_GRADLE_PROJECT_GPG_KEY_FILE:-}" ]; then
             echo "::error::ORG_GRADLE_PROJECT_GPG_KEY_FILE is empty. GITHUB_ENV propagation failed between steps."
             exit 1
           fi
-          echo "[diag] ls of key file:"
-          ls -la "$GPG_KEY_FILE"
-          echo "[diag] sha256:"
-          sha256sum "$GPG_KEY_FILE"
+          ls -la "$ORG_GRADLE_PROJECT_GPG_KEY_FILE"
           ./gradlew publishMavenJavaPublicationToSonatypeRepository \
                       closeSonatypeStagingRepository \
                       --no-build-cache
