@@ -236,26 +236,47 @@ publishing {
 // time, otherwise no signer is configured and :signMavenJavaPublication fails
 // with "没有配置的签署者" / "no configured signers".
 //
-// We resolve both values lazily: Gradle property GPG_KEY / GPG_PASSPHRASE
-// first, then environment variables (with ORG_GRADLE_PROJECT_ prefix or
-// without). The key must be the full ASCII-armored PRIVATE KEY block
-// (including -----BEGIN/END----- lines).
+// Key resolution order (first non-null wins):
+//   1. Gradle property GPG_KEY_FILE  -> path to ASCII-armored key file
+//      (preferred: multi-line key survives GitHub Actions ${{ }} interpolation
+//       better when read from a file than from an env var, which folds newlines)
+//   2. Gradle property GPG_KEY       -> ASCII-armored key as inline String
+//   3. Env GPG_KEY_FILE / GPG_KEY
+//
+// Passphrase resolution (first non-null wins):
+//   Gradle property GPG_PASSPHRASE -> env GPG_PASSPHRASE -> env
+//   ORG_GRADLE_PROJECT_GPG_PASSPHRASE
+//   (passphrase is single-line, env is fine)
 signing {
-    def gpgKey = (findProperty('GPG_KEY')        ?: System.getenv('GPG_KEY'))        ?: System.getenv('ORG_GRADLE_PROJECT_GPG_KEY')
-    def gpgPass = (findProperty('GPG_PASSPHRASE') ?: System.getenv('GPG_PASSPHRASE')) ?: System.getenv('ORG_GRADLE_PROJECT_GPG_PASSPHRASE')
-    if (gpgKey == null || gpgKey.toString().trim().isEmpty()) {
+    def gpgKeyFile = findProperty('GPG_KEY_FILE') ?: System.getenv('GPG_KEY_FILE')
+    def gpgKeyInline = findProperty('GPG_KEY')    ?: System.getenv('GPG_KEY')
+    def gpgKeyResolved
+    if (gpgKeyFile) {
+        def f = file(gpgKeyFile.toString())
+        if (!f.exists()) {
+            throw new GradleException("GPG_KEY_FILE points at ${f.path} but the file does not exist.")
+        }
+        gpgKeyResolved = f.text
+    } else {
+        gpgKeyResolved = gpgKeyInline
+    }
+    if (gpgKeyResolved == null || gpgKeyResolved.toString().trim().isEmpty()) {
         throw new GradleException(
-            'GPG_KEY (or ORG_GRADLE_PROJECT_GPG_KEY) is not set. ' +
-            'Provide the ASCII-armored PGP private key via Gradle property, ' +
-            'environment variable, or GitHub Actions secret.'
+            'GPG_KEY (or GPG_KEY_FILE) is not set. Provide the ASCII-armored ' +
+            'PGP private key via Gradle property, environment variable, or ' +
+            'GitHub Actions secret.'
         )
     }
-    if (gpgPass == null) {
-        // Empty passphrase is allowed (uncommon). useInMemoryPgpKeys does
-        // not accept null but accepts "".
-        gpgPass = ''
+    if (!gpgKeyResolved.toString().contains('BEGIN PGP PRIVATE KEY BLOCK')) {
+        throw new GradleException(
+            'Resolved GPG key does not contain a PGP PRIVATE KEY BLOCK header. ' +
+            'It was likely truncated — prefer GPG_KEY_FILE to GPG_KEY when the ' +
+            'value is multi-line.'
+        )
     }
-    useInMemoryPgpKeys(gpgKey.toString(), gpgPass.toString())
+    def gpgPass = (findProperty('GPG_PASSPHRASE') ?: System.getenv('GPG_PASSPHRASE')) ?: System.getenv('ORG_GRADLE_PROJECT_GPG_PASSPHRASE')
+    if (gpgPass == null) gpgPass = ''
+    useInMemoryPgpKeys(gpgKeyResolved.toString(), gpgPass.toString())
     sign publishing.publications.mavenJava
 }
 

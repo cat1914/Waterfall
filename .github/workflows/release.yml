@@ -65,18 +65,35 @@ jobs:
             echo "  gpg --armor --export $GPG_KEY_ID | curl -T - https://keys.openpgp.org/upload"
           fi
 
+      # 私钥多行字符串通过 ${{ }} 插值进 env 会被规范化（换行折叠成空格），
+      # 导致 ASCII-armored PGP 块被破坏，Gradle 拿到的是坏数据。
+      # 改为：先把私钥写到 runner 上的临时文件，再让 Gradle 通过 file()
+      # 直接读文件。passphrase 单行，可以走 env。
+      - name: Materialize GPG private key file
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p .gradle/secrets
+          # 私钥原样写入（保留换行），权限仅 owner 可读
+          printf '%s' "$GPG_PRIVATE_KEY" > .gradle/secrets/gpg-private.key
+          chmod 600 .gradle/secrets/gpg-private.key
+          echo "Wrote $(wc -c < .gradle/secrets/gpg-private.key) bytes to .gradle/secrets/gpg-private.key"
+          head -1 .gradle/secrets/gpg-private.key
+          tail -1 .gradle/secrets/gpg-private.key
+          # 注意：head/tail 只为确认 BEGIN/END 标记完整，*不*输出私钥内容
+
       - name: Publish to Maven Central
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_TOKEN:    ${{ secrets.OSSRH_TOKEN }}
-          # 私钥原文（包含 BEGIN/END 标记）和 passphrase 透传给 Gradle。
-          # 不要在日志中 echo 这些值。
-          ORG_GRADLE_PROJECT_GPG_KEY:        ${{ secrets.GPG_PRIVATE_KEY }}
+          # passphrase 单行，直接走 env。build.gradle 会优先用 GPG_KEY_FILE
+          # 读取私钥文件。
           ORG_GRADLE_PROJECT_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_GPG_KEY_FILE: ${{ github.workspace }}/.gradle/secrets/gpg-private.key
         run: |
           ./gradlew publishMavenJavaPublicationToSonatypeRepository \
                       closeSonatypeStagingRepository \
                       --no-build-cache
           # closeSonatypeStagingRepository 让 Sonatype 触发 Central 同步；
           # 新 central.sonatype.com portal 通常自动 promote。
-          # releaseSonatypeStagingRepository 可显式放行（可选）。
